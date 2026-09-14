@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phone-control.local/protocol/v1/input-touch.json",
+  "title": "InputTouchPayload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["action", "x", "y"],
+  "properties": {
+    "action": { "enum": ["down", "move", "up", "tap", "swipe", "scroll"] },
+    "x": { "type": "number" },
+    "y": { "type": "number" },
+    "x2": { "type": ["number", "null"] },
+    "y2": { "type": ["number", "null"] },
+    "pointerId": { "type": "integer", "minimum": 0, "default": 0 },
+    "durationMs": { "type": "integer", "minimum": 0, "default": 0 }
+  }
+}

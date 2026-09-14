@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "type": "state.update",
+  "requestId": "11111111-1111-1111-1111-111111111111",
+  "timestamp": 0,
+  "payload": {
+    "batteryPercent": 80,
+    "charging": true,
+    "network": "usb_tether",
+    "deviceTimeUtc": 0,
+    "screenWidth": 1080,
+    "screenHeight": 2400,
+    "rotation": 0
+  },
+  "error": null
+}

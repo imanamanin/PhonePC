@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "type": "clipboard.set",
+  "requestId": "55555555-5555-5555-5555-555555555555",
+  "timestamp": 0,
+  "payload": {
+    "origin": "windows",
+    "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "text": ""
+  },
+  "error": null
+}

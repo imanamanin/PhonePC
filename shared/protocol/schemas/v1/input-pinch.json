@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "input-pinch.json",
+  "title": "input.pinch payload",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "x": { "type": "number" },
+    "y": { "type": "number" },
+    "x2": { "type": "number" },
+    "y2": { "type": "number" },
+    "scale": { "type": "number", "exclusiveMinimum": 0 }
+  },
+  "required": ["x", "y", "scale"]
+}

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "type": "notification.received",
+  "requestId": "22222222-2222-2222-2222-222222222222",
+  "timestamp": 0,
+  "payload": {
+    "key": "example.package|1|null",
+    "packageName": "example.package",
+    "title": "New message",
+    "text": "Message preview",
+    "postedAt": 0,
+    "actions": []
+  },
+  "error": null
+}

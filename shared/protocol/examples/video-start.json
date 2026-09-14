@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "type": "video.start",
+  "requestId": "11111111-1111-1111-1111-111111111111",
+  "timestamp": 0,
+  "payload": {
+    "codec": "h264",
+    "maxFps": 30,
+    "maxWidth": 1280,
+    "bitrateKbps": 4000,
+    "port": 17891
+  },
+  "error": null
+}

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "type": "input.touch",
+  "requestId": "11111111-1111-1111-1111-111111111111",
+  "timestamp": 0,
+  "payload": {
+    "action": "tap",
+    "x": 500,
+    "y": 800,
+    "pointerId": 0,
+    "durationMs": 0
+  },
+  "error": null
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "video-start.json",
+  "title": "video.start payload",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "codec": { "type": "string", "enum": ["h264", "h265", "jpeg"] },
+    "maxFps": { "type": "integer", "minimum": 1, "maximum": 60 },
+    "maxWidth": { "type": "integer", "minimum": 240, "maximum": 1920 },
+    "bitrateKbps": { "type": "integer", "minimum": 200, "maximum": 8000 },
+    "port": { "type": "integer", "const": 17891 }
+  },
+  "required": ["codec", "port"]
+}

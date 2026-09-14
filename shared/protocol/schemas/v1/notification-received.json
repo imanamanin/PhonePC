@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phone-control.local/protocol/v1/notification-received.json",
+  "title": "NotificationReceivedPayload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["key", "packageName"],
+  "properties": {
+    "key": { "type": "string" },
+    "packageName": { "type": "string" },
+    "title": { "type": ["string", "null"] },
+    "text": { "type": ["string", "null"] },
+    "postedAt": { "type": "integer", "minimum": 0 },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "hasRemoteInput": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

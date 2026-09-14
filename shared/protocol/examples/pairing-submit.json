@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "type": "pairing.submit",
+  "requestId": "11111111-1111-1111-1111-111111111111",
+  "timestamp": 0,
+  "payload": {
+    "pin": "123456"
+  },
+  "error": null
+}

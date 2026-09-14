@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "type": "session.hello",
+  "requestId": "33333333-3333-3333-3333-333333333333",
+  "timestamp": 0,
+  "payload": {
+    "clientName": "PhoneControl.Desktop",
+    "clientVersion": "0.1.0",
+    "protocolMin": 1,
+    "protocolMax": 1,
+    "pairingId": null,
+    "supportedEncodings": ["json"],
+    "supportedScreenCodecs": ["h264", "jpeg"]
+  },
+  "error": null
+}

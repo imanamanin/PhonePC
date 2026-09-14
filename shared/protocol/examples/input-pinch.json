@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "type": "input.pinch",
+  "requestId": "11111111-1111-1111-1111-111111111111",
+  "timestamp": 0,
+  "payload": {
+    "x": 200,
+    "y": 400,
+    "x2": 600,
+    "y2": 800,
+    "scale": 1.25
+  },
+  "error": null
+}

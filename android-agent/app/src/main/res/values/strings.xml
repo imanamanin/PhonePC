@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Phone Control Agent</string>
+    <string name="phase_zero">Phase 0 — Architecture and scaffolding</string>
+    <string name="phase_two">Phase 2 — Screen capture and input</string>
+    <string name="phase_three">Phase 3 — Pairing and state sync</string>
+    <string name="start_capture">Start screen capture (system permission)</string>
+    <string name="stop_capture">Stop screen capture</string>
+    <string name="refresh_pairing">Show new PIN</string>
+    <string name="clear_pairing">Unpair this PC</string>
+    <string name="status_body">Control TCP %1$d\nScreen TCP %2$d\nAccessibility: %3$s\nNotification access: %4$s\n\nEnable these yourself in system settings:\n%5$s\n\nUSB tethering is not modified by this app.</string>
+    <string name="accessibility_description">Allows Phone Control Agent to perform taps and swipes that you request from your Windows PC. The service does not run hidden actions.</string>
+</resources>

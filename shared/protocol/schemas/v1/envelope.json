@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phone-control.local/protocol/v1/envelope.json",
+  "title": "PhoneControlEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "type", "requestId", "timestamp"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1 },
+    "type": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z0-9]+(\\.[a-z0-9_]+)+$" },
+    "requestId": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "integer", "minimum": 0 },
+    "payload": { "type": ["object", "null"] },
+    "error": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string", "maxLength": 256 },
+        "retryable": { "type": "boolean" }
+      }
+    }
+  }
+}

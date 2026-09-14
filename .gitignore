@@ -1,0 +1,66 @@
+# Build
+bin/
+obj/
+out/
+build/
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.nupkg
+*.snupkg
+
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+*.iml
+.cxx/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+.externalNativeBuild/
+
+# Secrets and pairing material
+*.pfx
+*.p12
+*.key
+*.pem
+secrets/
+**/pairing-store.json
+**/appsettings.Local.json
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Test / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Protocol generated (keep checked-in schemas)
+node_modules/
+
+# Cursor / tooling
+.cursor/
+*.canvas.data.json

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "type": "permissions.status",
+  "requestId": "44444444-4444-4444-4444-444444444444",
+  "timestamp": 0,
+  "payload": {
+    "accessibility": "granted",
+    "notificationListener": "denied",
+    "mediaProjection": "unknown",
+    "smsRead": "denied",
+    "smsSend": "denied",
+    "postNotifications": "granted"
+  },
+  "error": null
+}
