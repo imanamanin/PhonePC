@@ -6,6 +6,8 @@ namespace PhoneControl.Desktop.Audio;
 public sealed class NAudioPcmPlayer : IAudioPlayer
 {
     private readonly object _gate = new();
+    private readonly System.Windows.Threading.Dispatcher? _dispatcher =
+        System.Windows.Application.Current?.Dispatcher;
     private WaveOutEvent? _output;
     private BufferedWaveProvider? _buffer;
     private int _rate;
@@ -14,37 +16,30 @@ public sealed class NAudioPcmPlayer : IAudioPlayer
 
     public void PlayPcm(int sampleRate, int channels, int bitsPerSample, ReadOnlyMemory<byte> pcm)
     {
-        if (pcm.Length == 0 || sampleRate <= 0 || channels <= 0)
+        if (pcm.Length < 4 || sampleRate < 8000 || channels <= 0)
         {
             return;
         }
 
+        var copy = pcm.ToArray();
         var bits = bitsPerSample <= 0 ? 16 : bitsPerSample;
-        lock (_gate)
+        if (_dispatcher is not null && !_dispatcher.CheckAccess())
         {
-            Ensure(sampleRate, channels, bits);
-            if (_buffer is null || _output is null)
-            {
-                return;
-            }
-            var data = pcm.ToArray();
-            _buffer!.AddSamples(data, 0, data.Length);
-            if (_output!.PlaybackState != PlaybackState.Playing)
-            {
-                try
-                {
-                    _output.Play();
-                }
-                catch (Exception)
-                {
-                    // No output device.
-                }
-            }
+            _dispatcher.BeginInvoke(() => PlayOnUi(sampleRate, channels, bits, copy));
+            return;
         }
+
+        PlayOnUi(sampleRate, channels, bits, copy);
     }
 
     public void Stop()
     {
+        if (_dispatcher is not null && !_dispatcher.CheckAccess())
+        {
+            _dispatcher.BeginInvoke(Stop);
+            return;
+        }
+
         lock (_gate)
         {
             StopUnsafe();
@@ -52,6 +47,37 @@ public sealed class NAudioPcmPlayer : IAudioPlayer
     }
 
     public void Dispose() => Stop();
+
+    private void PlayOnUi(int sampleRate, int channels, int bits, byte[] pcm)
+    {
+        lock (_gate)
+        {
+            Ensure(sampleRate, channels, bits);
+            if (_buffer is null || _output is null)
+            {
+                return;
+            }
+
+            var data = Align(pcm, _buffer.WaveFormat.BlockAlign);
+            if (data.Length == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                _buffer.AddSamples(data, 0, data.Length);
+                if (_output.PlaybackState != PlaybackState.Playing)
+                {
+                    _output.Play();
+                }
+            }
+            catch (Exception)
+            {
+                StopUnsafe();
+            }
+        }
+    }
 
     private void Ensure(int sampleRate, int channels, int bits)
     {
@@ -68,11 +94,11 @@ public sealed class NAudioPcmPlayer : IAudioPlayer
         _buffer = new BufferedWaveProvider(format)
         {
             DiscardOnBufferOverflow = true,
-            BufferDuration = TimeSpan.FromMilliseconds(750)
+            BufferDuration = TimeSpan.FromMilliseconds(1000)
         };
         try
         {
-            _output = new WaveOutEvent { DesiredLatency = 120 };
+            _output = new WaveOutEvent { DesiredLatency = 100, NumberOfBuffers = 3 };
             _output.Init(_buffer);
         }
         catch (Exception)
@@ -94,8 +120,39 @@ public sealed class NAudioPcmPlayer : IAudioPlayer
             // Device already closed.
         }
 
-        _output?.Dispose();
+        try
+        {
+            _output?.Dispose();
+        }
+        catch (Exception)
+        {
+            // Already disposed.
+        }
+
         _output = null;
         _buffer = null;
+    }
+
+    private static byte[] Align(byte[] pcm, int blockAlign)
+    {
+        if (blockAlign <= 0)
+        {
+            return pcm;
+        }
+
+        var n = pcm.Length - (pcm.Length % blockAlign);
+        if (n <= 0)
+        {
+            return Array.Empty<byte>();
+        }
+
+        if (n == pcm.Length)
+        {
+            return pcm;
+        }
+
+        var cut = new byte[n];
+        Buffer.BlockCopy(pcm, 0, cut, 0, n);
+        return cut;
     }
 }

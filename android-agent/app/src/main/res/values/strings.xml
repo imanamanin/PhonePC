@@ -16,5 +16,5 @@
     <string name="lang_ar">عر</string>
     <string name="accessibility_description">Lets this PC tap and type on your phone when you ask it to.</string>
     <string name="control_listen_title">Phone Control</string>
-    <string name="control_listen_text">Ready for Windows</string>
+    <string name="control_listen_text">Ready for Windows or Chrome</string>
 </resources>

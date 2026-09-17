@@ -16,5 +16,5 @@
     <string name="lang_ar">عر</string>
     <string name="accessibility_description">اجازه می‌دهد رایانه با درخواست شما روی گوشی تپ و تایپ کند.</string>
     <string name="control_listen_title">کنترل گوشی</string>
-    <string name="control_listen_text">آماده برای ویندوز</string>
+    <string name="control_listen_text">آماده برای ویندوز یا کروم</string>
 </resources>

@@ -130,6 +130,7 @@ public sealed class VideoAndInputTests
         decoded.BitsPerSample.Should().Be(16);
         decoded.CaptureTimestampMs.Should().Be(99);
         decoded.Pcm.ToArray().Should().Equal(pcm);
+        AudioPacketCodec.IsPcm(AudioPacketCodec.Encode(packet)).Should().BeTrue();
     }
 
     [Fact]

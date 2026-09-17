@@ -16,5 +16,5 @@
     <string name="lang_ar">عر</string>
     <string name="accessibility_description">يسمح للكمبيوتر بالنقر والكتابة على هاتفك عند طلبك.</string>
     <string name="control_listen_title">التحكم بالهاتف</string>
-    <string name="control_listen_text">جاهز لـ Windows</string>
+    <string name="control_listen_text">جاهز لـ Windows أو Chrome</string>
 </resources>

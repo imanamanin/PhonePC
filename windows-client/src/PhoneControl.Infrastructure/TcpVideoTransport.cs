@@ -22,6 +22,7 @@ public sealed class TcpVideoTransport : IVideoTransport
         await DisposeAsync().ConfigureAwait(false);
         _client = new TcpClient();
         await _client.ConnectAsync(host, port, cancellationToken).ConfigureAwait(false);
+        _client.NoDelay = true;
         _stream = _client.GetStream();
     }
 

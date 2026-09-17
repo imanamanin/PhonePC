@@ -13,6 +13,7 @@ import com.phonecontrol.agent.domain.PairingEngine
 import com.phonecontrol.agent.domain.PinSubmitResult
 import com.phonecontrol.agent.domain.TouchCommand
 import com.phonecontrol.agent.domain.TrustedPairing
+import com.phonecontrol.agent.network.BrowserBridgeServer
 import com.phonecontrol.agent.network.ControlServer
 import com.phonecontrol.agent.screencapture.CaptureSettings
 import com.phonecontrol.agent.screencapture.ScreenCaptureController
@@ -40,7 +41,9 @@ class AgentApp : Application() {
         fun ensureControlServer() {
             val app = instance ?: return
             val rt = runtime ?: return
-            ControlServer.instance.start(AppCommandSink(app, rt))
+            val sink = AppCommandSink(app, rt)
+            ControlServer.instance.start(sink)
+            BrowserBridgeServer.instance.start(sink)
         }
 
         fun startControlListener() {

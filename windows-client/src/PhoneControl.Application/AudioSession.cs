@@ -109,7 +109,7 @@ public sealed class AudioSession : IAsyncDisposable
                 }
                 catch (Exception)
                 {
-                    await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(400, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
@@ -142,7 +142,7 @@ public sealed class AudioSession : IAsyncDisposable
                 continue;
             }
 
-            if (packet.SampleRate <= 0 || packet.Channels <= 0 || packet.Pcm.Length == 0)
+            if (packet.SampleRate < 8000 || packet.Channels <= 0 || packet.Pcm.Length < 4)
             {
                 continue;
             }

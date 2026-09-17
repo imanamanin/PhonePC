@@ -1,13 +1,11 @@
 package com.phonecontrol.agent.screencapture
 
-import android.Manifest
 import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
@@ -23,6 +21,7 @@ import android.os.HandlerThread
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.phonecontrol.agent.domain.ProtocolPorts
+import com.phonecontrol.agent.domain.StreamHub
 import com.phonecontrol.agent.domain.VideoPacket
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
@@ -122,7 +121,8 @@ class ScreenCaptureService : Service() {
             null
         )
         running.set(true)
-        serverThread = thread(name = "video-17891", isDaemon = true) { serve(width, height) }
+        thread(name = "media-hub", isDaemon = true) { pumpHub() }
+        serverThread = thread(name = "video-17891", isDaemon = true) { serve() }
         projection?.let { audio.start(this, it) }
     }
 
@@ -163,7 +163,33 @@ class ScreenCaptureService : Service() {
         return if (ok && bytes.isNotEmpty() && bytes.size <= ProtocolPorts.MAX_VIDEO_BYTES) bytes else null
     }
 
-    private fun serve(width: Int, height: Int) {
+    private fun pumpHub() {
+        var sent = 0L
+        while (running.get()) {
+            var wrote = false
+            val seq = jpegSeq.get()
+            val jpeg = latestJpeg.get()
+            if (jpeg != null && seq != sent) {
+                StreamHub.publishVideo(jpegPacket(jpeg, frameWidth, frameHeight), frameWidth, frameHeight)
+                sent = seq
+                wrote = true
+            }
+            val pcm = audio.pollPcm()
+            if (pcm != null && pcm.isNotEmpty()) {
+                StreamHub.publishAudio(audio.encodePcm(pcm))
+                wrote = true
+            }
+            if (!wrote) {
+                try {
+                    Thread.sleep(4)
+                } catch (_: InterruptedException) {
+                    break
+                }
+            }
+        }
+    }
+
+    private fun serve() {
         val server = ServerSocket()
         server.reuseAddress = true
         server.soTimeout = 250
@@ -181,18 +207,37 @@ class ScreenCaptureService : Service() {
                     }
                     continue
                 }
+                socket.tcpNoDelay = true
                 socket.use { client ->
                     val out = client.getOutputStream()
-                    var sent = 0L
-                    while (running.get()) {
-                        val seq = jpegSeq.get()
-                        val jpeg = latestJpeg.get()
-                        if (jpeg != null && seq != sent) {
-                            writeFrame(out, jpegPacket(jpeg, width, height))
-                            sent = seq
-                        } else {
-                            Thread.sleep(10)
+                    val writeLock = Any()
+                    fun emit(body: ByteArray) {
+                        synchronized(writeLock) {
+                            writeFrame(out, body)
                         }
+                    }
+                    val audioListener: (ByteArray) -> Unit = { packet ->
+                        try {
+                            emit(packet)
+                        } catch (_: Exception) {
+                            // Socket closed; the loop exits next.
+                        }
+                    }
+                    StreamHub.addAudioListener(audioListener)
+                    try {
+                        var sentVideo = 0L
+                        while (running.get()) {
+                            val snap = StreamHub.snapshot()
+                            val video = snap.video
+                            if (video != null && snap.videoSeq != sentVideo) {
+                                emit(video)
+                                sentVideo = snap.videoSeq
+                            } else {
+                                Thread.sleep(4)
+                            }
+                        }
+                    } finally {
+                        StreamHub.removeAudioListener(audioListener)
                     }
                 }
             }
@@ -238,13 +283,7 @@ class ScreenCaptureService : Service() {
             .setContentText("Screen capture is active. Stop from the app or this notification.")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .build()
-        if (Build.VERSION.SDK_INT >= 34) {
-            var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            }
-            startForeground(42, notification, types)
-        } else if (Build.VERSION.SDK_INT >= 29) {
+        if (Build.VERSION.SDK_INT >= 29) {
             startForeground(42, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
             startForeground(42, notification)
@@ -267,6 +306,7 @@ class ScreenCaptureService : Service() {
         imageThread?.quitSafely()
         imageThread = null
         latestJpeg.set(null)
+        StreamHub.clear()
         try {
             projection?.stop()
         } catch (_: Exception) {

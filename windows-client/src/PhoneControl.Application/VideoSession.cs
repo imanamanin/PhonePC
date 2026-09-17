@@ -10,6 +10,7 @@ public sealed class VideoSession : IAsyncDisposable
     private readonly IVideoDecoder _decoder;
     private readonly IClock _clock;
     private readonly IVideoTransportFactory _transportFactory;
+    private readonly IAudioPlayer _audio;
     private readonly AdaptiveStreamController _adaptive = new();
     private readonly LatencyMeter _latency = new();
     private CancellationTokenSource? _cts;
@@ -23,12 +24,14 @@ public sealed class VideoSession : IAsyncDisposable
         ConnectionManager connection,
         IVideoDecoder decoder,
         IClock clock,
-        IVideoTransportFactory transportFactory)
+        IVideoTransportFactory transportFactory,
+        IAudioPlayer audioPlayer)
     {
         _connection = connection;
         _decoder = decoder;
         _clock = clock;
         _transportFactory = transportFactory;
+        _audio = audioPlayer;
         _connection.StateChanged += OnStateChanged;
     }
 
@@ -129,6 +132,24 @@ public sealed class VideoSession : IAsyncDisposable
         await foreach (var raw in transport.ReadPacketsAsync(cancellationToken).ConfigureAwait(false))
         {
             var received = _clock.UtcNow.ToUnixTimeMilliseconds();
+            if (AudioPacketCodec.IsPcm(raw.Span))
+            {
+                try
+                {
+                    var audio = AudioPacketCodec.Decode(raw.Span);
+                    if (audio.SampleRate >= 8000 && audio.Channels > 0 && audio.Pcm.Length >= 4)
+                    {
+                        _audio.PlayPcm(audio.SampleRate, audio.Channels, audio.BitsPerSample, audio.Pcm);
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    // Skip a bad audio frame.
+                }
+
+                continue;
+            }
+
             VideoPacket packet;
             try
             {

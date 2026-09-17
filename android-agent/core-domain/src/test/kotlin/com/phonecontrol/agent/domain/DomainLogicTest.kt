@@ -190,6 +190,38 @@ class EditorTextTest {
     }
 }
 
+class WebSocketHandshakeTest {
+    @Test
+    fun rfc6455SampleKey() {
+        assertEquals(
+            "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+            WebSocketHandshake.accept("dGhlIHNhbXBsZSBub25jZQ==")
+        )
+    }
+}
+
+class StreamHubTest {
+    @Test
+    fun publishesLatestVideoAndAudio() {
+        StreamHub.clear()
+        StreamHub.publishVideo(byteArrayOf(1, 2, 3), 720, 1600)
+        StreamHub.publishAudio(byteArrayOf(0xA1.toByte(), 4))
+        val snap = StreamHub.snapshot()
+        assertEquals(720, snap.width)
+        assertEquals(1600, snap.height)
+        assertTrue(snap.video!!.contentEquals(byteArrayOf(1, 2, 3)))
+        assertTrue(snap.audio!!.contentEquals(byteArrayOf(0xA1.toByte(), 4)))
+        val heard = ArrayList<ByteArray>()
+        val listener: (ByteArray) -> Unit = { heard.add(it) }
+        StreamHub.addAudioListener(listener)
+        StreamHub.publishAudio(byteArrayOf(7, 8))
+        StreamHub.removeAudioListener(listener)
+        assertEquals(1, heard.size)
+        StreamHub.clear()
+        assertEquals(null, StreamHub.snapshot().video)
+    }
+}
+
 class AudioPacketTest {
     @Test
     fun roundTripPcm() {

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fa">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PC Phone</title>
+    <link rel="stylesheet" href="viewer.css" />
+  </head>
+  <body>
+    <div class="chrome">
+      <button id="settings-toggle" type="button" title="تنظیمات" aria-expanded="true">⚙</button>
+      <div class="brand">PC Phone</div>
+      <p id="status">آماده</p>
+      <button id="popout" type="button" title="پنجره جدا">⧉</button>
+    </div>
+    <aside id="settings" class="open">
+      <label class="host-field">
+        <span>IP گوشی</span>
+        <input id="host" type="text" placeholder="مثلاً 10.242.187.225" autocomplete="off" />
+      </label>
+      <div class="row">
+        <button id="find" type="button">پیدا کردن</button>
+        <button id="connect" type="button">اتصال</button>
+      </div>
+      <label class="pin-field">
+        <span>PIN</span>
+        <input id="pin" type="text" inputmode="numeric" maxlength="6" autocomplete="off" />
+      </label>
+      <button id="pair" type="button">جفت‌سازی</button>
+    </aside>
+    <main>
+      <div class="phone">
+        <span class="side-btn vol" aria-hidden="true"></span>
+        <span class="side-btn pwr" aria-hidden="true"></span>
+        <div class="phone-body">
+          <div class="island" aria-hidden="true"></div>
+          <div id="stage" class="phone-screen">
+            <canvas id="screen" tabindex="0"></canvas>
+            <p id="hint">USB tethering را روشن کنید، اپ گوشی را باز بگذارید، Capture و Accessibility را فعال کنید.</p>
+          </div>
+          <div class="home-bar" aria-hidden="true"></div>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="viewer.js"></script>
+  </body>
+</html>

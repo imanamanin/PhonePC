@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "PC Phone",
+  "version": "0.1.1",
+  "description": "Show and control your Android phone in a Chrome side panel, like a phone beside the browser.",
+  "action": {
+    "default_title": "PC Phone",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "viewer.html"
+  },
+  "permissions": ["storage", "sidePanel"],
+  "host_permissions": ["http://*:*/*", "ws://*:*/*"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

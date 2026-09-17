@@ -217,16 +217,21 @@ public sealed record AudioPacket(
     ReadOnlyMemory<byte> Pcm)
 {
     public const int Pcm16 = 1;
+    public const byte Magic = 0xA1;
 }
 
 public static class AudioPacketCodec
 {
     public const int HeaderSize = 16;
 
+    public static bool IsPcm(ReadOnlySpan<byte> buffer)
+        => buffer.Length >= HeaderSize && buffer[0] == AudioPacket.Magic;
+
     public static byte[] Encode(AudioPacket packet)
     {
         var pcm = packet.Pcm.Span;
         var buffer = new byte[HeaderSize + pcm.Length];
+        buffer[0] = AudioPacket.Magic;
         BinaryPrimitives.WriteInt64BigEndian(buffer.AsSpan(1, 8), packet.CaptureTimestampMs);
         BinaryPrimitives.WriteInt32BigEndian(buffer.AsSpan(9, 4), packet.SampleRate);
         buffer[13] = (byte)packet.Channels;

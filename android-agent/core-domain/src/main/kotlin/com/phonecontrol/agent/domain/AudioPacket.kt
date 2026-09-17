@@ -10,10 +10,11 @@ class AudioPacket(
     companion object {
         const val HEADER = 16
         const val PCM16 = 1
+        const val MAGIC = 0xA1
 
         fun encode(packet: AudioPacket): ByteArray {
             val out = ByteArray(HEADER + packet.payload.size)
-            out[0] = 0
+            out[0] = MAGIC.toByte()
             writeLong(out, 1, packet.captureTimestampMs)
             writeInt(out, 9, packet.sampleRate)
             out[13] = packet.channels.toByte()
