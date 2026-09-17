@@ -89,6 +89,24 @@ class LengthPrefixedTest {
     }
 }
 
+class JsonLiteWindowsEnvelopeTest {
+    @Test
+    fun parsesWindowsPairingSubmit() {
+        val json =
+            """{"version":1,"type":"pairing.submit","requestId":"d3c1a8e0-1b2a-4c3d-9e0f-123456789abc","timestamp":1726330000000,"payload":{"pin":"123456"}}"""
+        val envelope = JsonLite.parseEnvelope(json)
+        assertEquals("pairing.submit", envelope.type)
+        assertEquals("d3c1a8e0-1b2a-4c3d-9e0f-123456789abc", envelope.requestId)
+        assertEquals("123456", JsonLite.stringField(envelope.payloadJson!!, "pin"))
+    }
+
+    @Test
+    fun unicodeEscapesBecomeLetters() {
+        assertEquals("سلام", JsonLite.stringField("{\"text\":\"\\u0633\\u0644\\u0627\\u0645\"}", "text"))
+        assertEquals("سلام", JsonLite.stringField("{\"text\":\"سلام\"}", "text"))
+    }
+}
+
 class AgentCommandRouterTest {
     @Test
     fun videoStartWithoutCaptureIsDenied() {
@@ -145,6 +163,43 @@ class AgentCommandRouterTest {
             Envelope(type = "video.start", requestId = "11111111-1111-1111-1111-111111111111", timestamp = 0)
         )
         assertEquals("UNPAIRED", result.error?.code)
+    }
+
+    @Test
+    fun typedTextIsInjected() {
+        val router = AgentCommandRouter(FakeSink(granted = true, inject = true))
+        val result = router.handle(
+            Envelope(
+                type = "input.key",
+                requestId = "11111111-1111-1111-1111-111111111111",
+                timestamp = 0,
+                payloadJson = """{"action":"type","key":"type","text":"hi"}"""
+            )
+        )
+        assertEquals(null, result.error)
+    }
+}
+
+class EditorTextTest {
+    @Test
+    fun hintIsNotKeptAsTypedText() {
+        assertEquals("", EditorText.visibleContent("Text message", "Text message", showingHint = true))
+        assertEquals("", EditorText.visibleContent("Text message", "Text message", showingHint = false))
+        assertEquals("hello", EditorText.visibleContent("Text messagehello", "Text message", showingHint = false))
+        assertEquals("hi", EditorText.visibleContent("hi", "Text message", showingHint = false))
+    }
+}
+
+class AudioPacketTest {
+    @Test
+    fun roundTripPcm() {
+        val original = AudioPacket(48000, 2, 16, 99, byteArrayOf(1, 2, 3, 4))
+        val decoded = AudioPacket.decode(AudioPacket.encode(original))
+        assertEquals(48000, decoded.sampleRate)
+        assertEquals(2, decoded.channels)
+        assertEquals(16, decoded.bitsPerSample)
+        assertEquals(99L, decoded.captureTimestampMs)
+        assertTrue(decoded.payload.contentEquals(original.payload))
     }
 }
 
@@ -205,4 +260,5 @@ private class FakeSink(
     override fun requestStopCapture() = Unit
     override fun injectTouch(command: TouchCommand) = inject
     override fun injectKey(key: String) = inject
+    override fun injectText(text: String) = inject
 }

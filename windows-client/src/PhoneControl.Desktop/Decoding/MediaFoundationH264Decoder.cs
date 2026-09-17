@@ -17,6 +17,8 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
     private int _width;
     private int _height;
     private bool _providesSamples;
+    private byte[]? _csd;
+    private long _originMs;
 
     public static IVideoDecoder? TryCreate()
     {
@@ -93,6 +95,10 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
                 ReleaseTransform();
                 return false;
             }
+            catch (ArgumentException)
+            {
+                return false;
+            }
         }
     }
 
@@ -134,15 +140,20 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
         var frameKey = MfGuids.FrameSize;
         if (input.SetGUID(ref major, ref video) < 0 ||
             input.SetGUID(ref subtypeKey, ref subtype) < 0 ||
-            input.SetUINT32(ref interlaceKey, MfPlat.Progressive) < 0 ||
-            input.SetUINT64(ref frameKey, PackSize(packet.Width, packet.Height)) < 0)
+            input.SetUINT32(ref interlaceKey, MfPlat.Progressive) < 0)
         {
             return false;
         }
 
+        // Compressed H.264 input often rejects an explicit frame size; size comes from SPS.
+        _ = input.SetUINT64(ref frameKey, PackSize(packet.Width, packet.Height));
         if (_transform.SetInputType(0, input, 0) < 0)
         {
-            return false;
+            _ = input.DeleteItem(ref frameKey);
+            if (_transform.SetInputType(0, input, 0) < 0)
+            {
+                return false;
+            }
         }
 
         IMFMediaType? nv12 = null;
@@ -194,6 +205,7 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
         _codec = packet.Codec;
         _width = packet.Width;
         _height = packet.Height;
+        _originMs = 0;
         return true;
     }
 
@@ -204,7 +216,25 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
             return false;
         }
 
-        var payload = packet.Payload.Span;
+        var annexB = H264AnnexB.Normalize(packet.Payload.Span);
+        if (annexB.Length == 0)
+        {
+            return false;
+        }
+
+        if ((packet.Flags & VideoPacketFlags.Config) != 0 || H264AnnexB.ContainsSps(annexB))
+        {
+            _csd = annexB;
+        }
+
+        var payload = annexB;
+        if ((packet.Flags & VideoPacketFlags.Keyframe) != 0 &&
+            _csd is not null &&
+            !H264AnnexB.ContainsSps(annexB))
+        {
+            payload = H264AnnexB.Concat(_csd, annexB);
+        }
+
         if (MfPlat.MFCreateMemoryBuffer(payload.Length, out var buffer) < 0)
         {
             return false;
@@ -215,7 +245,7 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
             return false;
         }
 
-        Marshal.Copy(payload.ToArray(), 0, ptr, payload.Length);
+        Marshal.Copy(payload, 0, ptr, payload.Length);
         _ = buffer.Unlock();
         _ = buffer.SetCurrentLength(payload.Length);
         if (MfPlat.MFCreateSample(out var sample) < 0)
@@ -228,8 +258,20 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
             return false;
         }
 
-        _ = sample.SetSampleTime(packet.CaptureTimestampMs * 10_000);
+        if (_originMs == 0)
+        {
+            _originMs = packet.CaptureTimestampMs;
+        }
+
+        var hns = Math.Max(0L, packet.CaptureTimestampMs - _originMs) * 10_000;
+        _ = sample.SetSampleTime(hns);
         _ = sample.SetSampleDuration(10_000 * 40);
+        if ((packet.Flags & VideoPacketFlags.Keyframe) != 0 || H264AnnexB.ContainsIdr(annexB))
+        {
+            var clean = MfGuids.CleanPoint;
+            _ = sample.SetUINT32(ref clean, 1);
+        }
+
         var hr = _transform.ProcessInput(0, sample, 0);
         return hr >= 0;
     }
@@ -260,29 +302,75 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
             buffers[0].Sample = Marshal.GetIUnknownForObject(sample);
         }
 
-        var hr = _transform.ProcessOutput(0, 1, buffers, out _);
-        if (hr == MfPlat.NeedMoreInput)
+        DecodedFrame? last = null;
+        for (var i = 0; i < 8; i++)
         {
-            ReleaseBuffer(buffers[0]);
-            return false;
+            var hr = _transform.ProcessOutput(0, 1, buffers, out _);
+            if (hr == MfPlat.NeedMoreInput)
+            {
+                ReleaseBuffer(buffers[0]);
+                break;
+            }
+
+            if (hr == MfPlat.StreamChange)
+            {
+                ReleaseBuffer(buffers[0]);
+                _ = CreateTransform(packet);
+                frame = last;
+                return last is not null;
+            }
+
+            if (hr < 0 || buffers[0].Sample == IntPtr.Zero)
+            {
+                ReleaseBuffer(buffers[0]);
+                break;
+            }
+
+            try
+            {
+                if (CopySample(buffers[0], packet, receivedTimestampMs, out var decoded) && decoded is not null)
+                {
+                    last = decoded;
+                }
+            }
+            finally
+            {
+                ReleaseBuffer(buffers[0]);
+            }
+
+            buffers[0] = default;
+            if (!_providesSamples)
+            {
+                if (MfPlat.MFCreateSample(out var sample) < 0)
+                {
+                    break;
+                }
+
+                var size = packet.Width * packet.Height * 2;
+                if (MfPlat.MFCreateMemoryBuffer(size, out var mediaBuffer) < 0)
+                {
+                    break;
+                }
+
+                _ = sample.AddBuffer(mediaBuffer);
+                buffers[0].Sample = Marshal.GetIUnknownForObject(sample);
+            }
         }
 
-        if (hr == MfPlat.StreamChange)
-        {
-            ReleaseBuffer(buffers[0]);
-            _ = CreateTransform(packet);
-            return false;
-        }
+        frame = last;
+        return last is not null;
+    }
 
-        if (hr < 0 || buffers[0].Sample == IntPtr.Zero)
-        {
-            ReleaseBuffer(buffers[0]);
-            return false;
-        }
-
+    private bool CopySample(
+        MftOutputDataBuffer buffer,
+        VideoPacket packet,
+        long receivedTimestampMs,
+        out DecodedFrame? frame)
+    {
+        frame = null;
         try
         {
-            var sample = (IMFSample)Marshal.GetObjectForIUnknown(buffers[0].Sample);
+            var sample = (IMFSample)Marshal.GetObjectForIUnknown(buffer.Sample);
             if (sample.ConvertToContiguousBuffer(out var contiguous) < 0)
             {
                 return false;
@@ -298,7 +386,8 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
             _ = contiguous.Unlock();
             var strideKey = MfGuids.DefaultStride;
             var stride = packet.Width;
-            if (_transform.GetOutputCurrentType(0, out var type) >= 0 &&
+            if (_transform is not null &&
+                _transform.GetOutputCurrentType(0, out var type) >= 0 &&
                 type.GetUINT32(ref strideKey, out var rawStride) >= 0 &&
                 rawStride != 0)
             {
@@ -309,9 +398,9 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
             frame = new DecodedFrame(packet.Width, packet.Height, bgra, packet.CaptureTimestampMs, receivedTimestampMs);
             return true;
         }
-        finally
+        catch (ArgumentException)
         {
-            ReleaseBuffer(buffers[0]);
+            return false;
         }
     }
 
@@ -354,6 +443,9 @@ public sealed class MediaFoundationH264Decoder : IVideoDecoder, IDisposable
             Marshal.ReleaseComObject(_transform);
             _transform = null;
         }
+
+        _csd = null;
+        _originMs = 0;
     }
 
     public void Dispose()

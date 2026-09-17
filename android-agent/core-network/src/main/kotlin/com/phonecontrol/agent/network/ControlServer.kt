@@ -4,6 +4,7 @@ import com.phonecontrol.agent.domain.AgentCommandRouter
 import com.phonecontrol.agent.domain.AgentCommandSink
 import com.phonecontrol.agent.domain.JsonLite
 import com.phonecontrol.agent.domain.LengthPrefixed
+import com.phonecontrol.agent.domain.ProtocolError
 import com.phonecontrol.agent.domain.ProtocolPorts
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -24,19 +25,51 @@ class ControlServer(
     private var acceptThread: Thread? = null
     private var router: AgentCommandRouter? = null
 
-    fun describe(): String = "control=$controlPort screen=$screenPort"
+    fun describe(): String {
+        val listen = if (isListening()) "listening" else "not-listening"
+        val err = lastError?.let { " error=$it" } ?: ""
+        val ips = localIpv4().joinToString(",").ifEmpty { "no-ipv4" }
+        return "control=$controlPort screen=$screenPort $listen $ips$err"
+    }
 
+    fun isListening(): Boolean {
+        val socket = server
+        return socket != null && socket.isBound && !socket.isClosed
+    }
+
+    @Volatile
+    var lastError: String? = null
+        private set
+
+    @Synchronized
     fun start(sink: AgentCommandSink) {
-        if (!running.compareAndSet(false, true)) {
-            router = AgentCommandRouter(sink)
+        router = AgentCommandRouter(sink)
+        val existing = server
+        if (existing != null && existing.isBound && !existing.isClosed) {
             return
         }
-        router = AgentCommandRouter(sink)
-        val socket = ServerSocket()
-        socket.reuseAddress = true
-        socket.bind(InetSocketAddress(controlPort))
-        server = socket
-        acceptThread = thread(name = "control-17890", isDaemon = true) { acceptLoop(socket) }
+        try {
+            existing?.close()
+        } catch (_: Exception) {
+            // Rebind.
+        }
+        running.set(true)
+        lastError = null
+        try {
+            val socket = ServerSocket()
+            socket.reuseAddress = true
+            try {
+                socket.bind(InetSocketAddress("0.0.0.0", controlPort), 16)
+            } catch (_: Exception) {
+                socket.bind(InetSocketAddress(controlPort), 16)
+            }
+            server = socket
+            acceptThread = thread(name = "control-17890", isDaemon = false) { acceptLoop(socket) }
+        } catch (ex: Exception) {
+            running.set(false)
+            server = null
+            lastError = ex.javaClass.simpleName
+        }
     }
 
     fun stop() {
@@ -54,10 +87,38 @@ class ControlServer(
             val client = try {
                 serverSocket.accept()
             } catch (_: Exception) {
-                break
+                if (!running.get()) {
+                    break
+                }
+                try {
+                    Thread.sleep(250)
+                } catch (_: InterruptedException) {
+                    break
+                }
+                continue
             }
             thread(name = "control-session", isDaemon = true) { session(client) }
         }
+    }
+
+    private fun localIpv4(): List<String> {
+        val found = ArrayList<String>()
+        try {
+            val ifaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return found
+            for (nic in ifaces) {
+                if (!nic.isUp || nic.isLoopback) {
+                    continue
+                }
+                for (addr in nic.inetAddresses) {
+                    if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                        found.add(addr.hostAddress)
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // Interface list is diagnostic only.
+        }
+        return found
     }
 
     private fun session(socket: Socket) {
@@ -75,12 +136,26 @@ class ControlServer(
                 } catch (_: Exception) {
                     continue
                 }
-                val reply = router?.handle(envelope) ?: envelope
-                LengthPrefixed.write(
-                    output,
-                    JsonLite.encodeEnvelope(reply).encodeToByteArray(),
-                    ProtocolPorts.MAX_JSON_BYTES
-                )
+                val reply = try {
+                    router?.handle(envelope) ?: envelope
+                } catch (_: Exception) {
+                    envelope.copy(
+                        error = ProtocolError(
+                            "INTERNAL",
+                            "handler failed",
+                            retryable = true
+                        )
+                    )
+                }
+                try {
+                    LengthPrefixed.write(
+                        output,
+                        JsonLite.encodeEnvelope(reply).encodeToByteArray(),
+                        ProtocolPorts.MAX_JSON_BYTES
+                    )
+                } catch (_: Exception) {
+                    break
+                }
             }
         }
     }

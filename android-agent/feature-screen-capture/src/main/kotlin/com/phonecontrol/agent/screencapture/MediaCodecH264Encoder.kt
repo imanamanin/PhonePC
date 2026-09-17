@@ -13,6 +13,7 @@ interface VideoEncoder {
     fun configure(width: Int, height: Int, fps: Int, bitrateKbps: Int): Surface?
     fun drain(): List<EncodedNal>
     fun applyBitrate(bitrateKbps: Int)
+    fun requestKeyFrame()
     fun release()
 }
 
@@ -32,6 +33,9 @@ class MediaCodecH264Encoder : VideoEncoder {
             setInteger(MediaFormat.KEY_BIT_RATE, bitrateKbps * 1000)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            format.setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0)
         }
         val encoder = try {
             createHardwareFirst()
@@ -56,23 +60,41 @@ class MediaCodecH264Encoder : VideoEncoder {
         val nals = mutableListOf<EncodedNal>()
         while (true) {
             val index = encoder.dequeueOutputBuffer(info, 0)
-            if (index < 0) break
-            val buffer = encoder.getOutputBuffer(index)
-            if (buffer == null) {
-                encoder.releaseOutputBuffer(index, false)
-                continue
+            when {
+                index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    csdFromFormat(encoder.outputFormat)?.let { nals += it }
+                }
+                index < 0 -> break
+                else -> {
+                    val buffer = encoder.getOutputBuffer(index)
+                    if (buffer == null) {
+                        encoder.releaseOutputBuffer(index, false)
+                        continue
+                    }
+                    val bytes = ByteArray(info.size)
+                    buffer.position(info.offset)
+                    buffer.get(bytes)
+                    nals += EncodedNal(
+                        bytes = bytes,
+                        keyframe = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0,
+                        config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
+                    )
+                    encoder.releaseOutputBuffer(index, false)
+                }
             }
-            val bytes = ByteArray(info.size)
-            buffer.position(info.offset)
-            buffer.get(bytes)
-            nals += EncodedNal(
-                bytes = bytes,
-                keyframe = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0,
-                config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
-            )
-            encoder.releaseOutputBuffer(index, false)
         }
         return nals
+    }
+
+    override fun requestKeyFrame() {
+        val encoder = codec ?: return
+        val bundle = Bundle()
+        bundle.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+        try {
+            encoder.setParameters(bundle)
+        } catch (_: Exception) {
+            // Some OEM encoders reject sync-frame requests.
+        }
     }
 
     override fun applyBitrate(bitrateKbps: Int) {
@@ -106,5 +128,20 @@ class MediaCodecH264Encoder : VideoEncoder {
             return MediaCodec.createByCodecName(info.name)
         }
         return MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+    }
+
+    private fun csdFromFormat(format: MediaFormat): EncodedNal? {
+        val sps = byteArrayFrom(format, "csd-0") ?: return null
+        val pps = byteArrayFrom(format, "csd-1")
+        val bytes = if (pps == null) sps else sps + pps
+        return EncodedNal(bytes = bytes, keyframe = true, config = true)
+    }
+
+    private fun byteArrayFrom(format: MediaFormat, key: String): ByteArray? {
+        val buffer = format.getByteBuffer(key) ?: return null
+        val copy = buffer.duplicate()
+        val bytes = ByteArray(copy.remaining())
+        copy.get(bytes)
+        return bytes
     }
 }

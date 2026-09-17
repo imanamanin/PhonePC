@@ -9,6 +9,7 @@ public sealed class ConnectionManager : IAsyncDisposable
 {
     private readonly ConnectionDependencies _deps;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly ConcurrentDictionary<string, TaskCompletionSource<MessageEnvelope>> _pending = new();
     private readonly ReconnectPolicy _reconnect;
     private readonly TrustedDeviceStore _trustedStore;
@@ -18,6 +19,7 @@ public sealed class ConnectionManager : IAsyncDisposable
     private Task? _sessionTask;
     private Task? _readLoopTask;
     private int _reconnectAttempts;
+    private int _pairingInFlight;
     private bool _userDisconnect;
 
     public ConnectionManager(ConnectionDependencies deps)
@@ -43,32 +45,52 @@ public sealed class ConnectionManager : IAsyncDisposable
             return;
         }
 
-        var transport = _transport ?? throw new InvalidOperationException("Not connected.");
-        var request = EnvelopeFactory.Create(
-            MessageTypes.PairingSubmit,
-            _deps.Clock.UtcNow.ToUnixTimeMilliseconds(),
-            new PairingSubmitPayload { Pin = pin });
-        var reply = await SendAndWaitAsync(transport, request, _deps.Options.HandshakeTimeout, cancellationToken)
-            .ConfigureAwait(false);
-
-        if (string.Equals(reply.Type, MessageTypes.PairingAccepted, StringComparison.Ordinal) && reply.Error is null)
+        try
         {
-            await AcceptPairingAsync(reply, cancellationToken).ConfigureAwait(false);
-            return;
+            Interlocked.Increment(ref _pairingInFlight);
+            var transport = _transport ?? throw new InvalidOperationException("Not connected.");
+            var request = EnvelopeFactory.Create(
+                MessageTypes.PairingSubmit,
+                _deps.Clock.UtcNow.ToUnixTimeMilliseconds(),
+                new PairingSubmitPayload { Pin = pin });
+            var reply = await SendAndWaitAsync(transport, request, _deps.Options.HandshakeTimeout, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (string.Equals(reply.Type, MessageTypes.PairingAccepted, StringComparison.Ordinal) && reply.Error is null)
+            {
+                await AcceptPairingAsync(reply, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            if (string.Equals(reply.Type, MessageTypes.PairingExpired, StringComparison.Ordinal))
+            {
+                Apply(_snapshot with { ErrorCode = "PIN_EXPIRED", State = ConnectionState.PairingRequired });
+                return;
+            }
+
+            var reason = EnvelopeFactory.ReadPayload<PairingRejectedPayload>(reply)?.Reason ?? "pin_mismatch";
+            Apply(_snapshot with
+            {
+                ErrorCode = reason == "locked" ? "PIN_LOCKED" : "PIN_MISMATCH",
+                State = ConnectionState.PairingRequired
+            });
         }
-
-        if (string.Equals(reply.Type, MessageTypes.PairingExpired, StringComparison.Ordinal))
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            Apply(_snapshot with { ErrorCode = "PIN_EXPIRED", State = ConnectionState.PairingRequired });
-            return;
+            throw;
         }
-
-        var reason = EnvelopeFactory.ReadPayload<PairingRejectedPayload>(reply)?.Reason ?? "pin_mismatch";
-        Apply(_snapshot with
+        catch (TimeoutException)
         {
-            ErrorCode = reason == "locked" ? "PIN_LOCKED" : "PIN_MISMATCH",
-            State = ConnectionState.PairingRequired
-        });
+            Apply(_snapshot with { ErrorCode = "TIMEOUT" });
+        }
+        catch (Exception)
+        {
+            Apply(_snapshot with { ErrorCode = "PAIRING_FAILED" });
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _pairingInFlight);
+        }
     }
 
     public async Task UnpairAsync(CancellationToken cancellationToken)
@@ -123,8 +145,15 @@ public sealed class ConnectionManager : IAsyncDisposable
     {
         if (_sessionTask is { IsCompleted: false })
         {
-            await WaitForStableAsync(cancellationToken).ConfigureAwait(false);
-            return;
+            if (_snapshot.State is ConnectionState.Reconnecting or ConnectionState.Error or ConnectionState.Connecting)
+            {
+                await StopSessionCoreAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                await WaitForStableAsync(cancellationToken).ConfigureAwait(false);
+                return;
+            }
         }
 
         _userDisconnect = false;
@@ -151,6 +180,12 @@ public sealed class ConnectionManager : IAsyncDisposable
     public async Task DisconnectAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        await StopSessionCoreAsync().ConfigureAwait(false);
+        MoveToIfAllowed(ConnectionState.Disconnected, null);
+    }
+
+    private async Task StopSessionCoreAsync()
+    {
         _userDisconnect = true;
         CancelSession();
         if (_sessionTask is not null)
@@ -161,24 +196,51 @@ public sealed class ConnectionManager : IAsyncDisposable
             }
             catch (OperationCanceledException)
             {
-                // Expected when the user disconnects.
+                // Expected when the session is cancelled.
+            }
+            catch (Exception)
+            {
+                // Session already recorded the failure.
             }
         }
 
         await DisposeTransportAsync().ConfigureAwait(false);
-        MoveTo(ConnectionState.Disconnected, null);
+        _sessionTask = null;
+        _userDisconnect = false;
     }
 
-    public async Task SendAsync(MessageEnvelope message, CancellationToken cancellationToken)
+    public Task SendAsync(MessageEnvelope message, CancellationToken cancellationToken)
     {
         var transport = _transport ?? throw new InvalidOperationException("Not connected.");
-        await transport.SendAsync(MessageSerializer.Serialize(message), cancellationToken).ConfigureAwait(false);
+        return WriteFrameAsync(transport, message, cancellationToken);
+    }
+
+    public async Task<MessageEnvelope?> RequestAsync(
+        MessageEnvelope message,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var transport = _transport;
+        if (transport is null || !transport.IsConnected)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await SendAndWaitAsync(transport, message, timeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
         await DisconnectAsync(CancellationToken.None).ConfigureAwait(false);
         _gate.Dispose();
+        _sendGate.Dispose();
         _sessionCts?.Dispose();
     }
 
@@ -220,11 +282,11 @@ public sealed class ConnectionManager : IAsyncDisposable
 
                 if (_reconnectAttempts > _deps.Options.MaxReconnectAttempts)
                 {
-                    MoveTo(ConnectionState.Error, ErrorCode(ex));
+                    MoveTo(ConnectionState.Error, "PHONE_UNREACHABLE");
                     return;
                 }
 
-                MoveTo(ConnectionState.Reconnecting, ErrorCode(ex));
+                MoveTo(ConnectionState.Reconnecting, "PHONE_UNREACHABLE");
                 try
                 {
                     await _deps.Delay.Delay(_reconnect.NextDelay(), ct).ConfigureAwait(false);
@@ -287,6 +349,10 @@ public sealed class ConnectionManager : IAsyncDisposable
             _snapshot.Status,
             _snapshot.Sas,
             _snapshot.TrustedDevice));
+        _deps.Logger.Info(
+            "Discovered {Count} control endpoints; first {Endpoint}",
+            probe.Endpoints.Count,
+            probe.Endpoints.FirstOrDefault() ?? "none");
     }
 
     private async Task HandshakeAsync(string endpoint, CancellationToken cancellationToken)
@@ -297,7 +363,7 @@ public sealed class ConnectionManager : IAsyncDisposable
         var transport = _deps.TransportFactory.Create();
         _transport = transport;
         using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        connectCts.CancelAfter(_deps.Options.HandshakeTimeout);
+        connectCts.CancelAfter(_deps.Options.TcpConnectTimeout);
         try
         {
             await transport.ConnectAsync(host, port, connectCts.Token).ConfigureAwait(false);
@@ -357,6 +423,11 @@ public sealed class ConnectionManager : IAsyncDisposable
         while (!cancellationToken.IsCancellationRequested)
         {
             await _deps.Delay.Delay(_deps.Options.HeartbeatInterval, cancellationToken).ConfigureAwait(false);
+            if (Volatile.Read(ref _pairingInFlight) != 0)
+            {
+                continue;
+            }
+
             var ping = EnvelopeFactory.Create(
                 MessageTypes.SessionPing,
                 _deps.Clock.UtcNow.ToUnixTimeMilliseconds(),
@@ -367,6 +438,8 @@ public sealed class ConnectionManager : IAsyncDisposable
             {
                 throw new IOException("Heartbeat mismatch.");
             }
+
+            await RequestDeviceStatusAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -418,7 +491,7 @@ public sealed class ConnectionManager : IAsyncDisposable
     {
         var tcs = new TaskCompletionSource<MessageEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[request.RequestId] = tcs;
-        await transport.SendAsync(MessageSerializer.Serialize(request), cancellationToken).ConfigureAwait(false);
+        await WriteFrameAsync(transport, request, cancellationToken).ConfigureAwait(false);
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(timeout);
@@ -548,7 +621,23 @@ public sealed class ConnectionManager : IAsyncDisposable
             return;
         }
 
-        var token = Convert.FromBase64String(accepted.SessionToken);
+        byte[] token;
+        try
+        {
+            token = Convert.FromBase64String(accepted.SessionToken);
+        }
+        catch (FormatException)
+        {
+            Apply(_snapshot with { ErrorCode = "PAIRING_FAILED" });
+            return;
+        }
+
+        if (token.Length != PairingCrypto.TokenBytes)
+        {
+            Apply(_snapshot with { ErrorCode = "PAIRING_FAILED" });
+            return;
+        }
+
         var sas = PairingCrypto.ComputeSas(token);
         if (!string.IsNullOrWhiteSpace(accepted.Sas) && !PairingCrypto.ConstantTimeEquals(sas, accepted.Sas))
         {
@@ -556,16 +645,47 @@ public sealed class ConnectionManager : IAsyncDisposable
             return;
         }
 
-        var expires = accepted.ExpiresAt > 0
-            ? DateTimeOffset.FromUnixTimeMilliseconds(accepted.ExpiresAt)
-            : _deps.Clock.UtcNow.AddDays(30);
+        DateTimeOffset expires;
+        try
+        {
+            expires = accepted.ExpiresAt > 0
+                ? DateTimeOffset.FromUnixTimeMilliseconds(accepted.ExpiresAt)
+                : _deps.Clock.UtcNow.AddDays(30);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            expires = _deps.Clock.UtcNow.AddDays(30);
+        }
+
         await _trustedStore.SaveAsync(
             new TrustedDevice(accepted.PairingId, token, expires),
             cancellationToken).ConfigureAwait(false);
 
-        MoveTo(ConnectionState.Connected, null);
-        Apply(_snapshot with { Sas = sas, TrustedDevice = true, ErrorCode = null });
+        MoveToIfAllowed(ConnectionState.Connected, null);
+        Apply(_snapshot with
+        {
+            Sas = sas,
+            TrustedDevice = true,
+            ErrorCode = _snapshot.State == ConnectionState.Connected ? null : "PAIRING_FAILED"
+        });
         await RequestDeviceStatusAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task WriteFrameAsync(
+        IControlTransport transport,
+        MessageEnvelope message,
+        CancellationToken cancellationToken)
+    {
+        var bytes = MessageSerializer.Serialize(message);
+        await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await transport.SendAsync(bytes, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _sendGate.Release();
+        }
     }
 
     private async Task RequestDeviceStatusAsync(CancellationToken cancellationToken)
@@ -623,14 +743,23 @@ public sealed class ConnectionManager : IAsyncDisposable
                 payload.ScreenWidth,
                 payload.ScreenHeight,
                 payload.Rotation,
-                null)
+                null,
+                payload.Accessibility,
+                payload.MediaProjection)
         });
     }
 
     private void Apply(ConnectionSnapshot next)
     {
         _snapshot = next;
-        StateChanged?.Invoke(this, next);
+        try
+        {
+            StateChanged?.Invoke(this, next);
+        }
+        catch (Exception)
+        {
+            // Video/UI handlers must not tear down pairing or close the process.
+        }
     }
 
     private void CancelSession()

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Windows;
 using System.Windows.Media.Imaging;
 using PhoneControl.Screen;
 
@@ -14,6 +15,22 @@ public sealed class JpegWicDecoder : IVideoDecoder
             return false;
         }
 
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            DecodedFrame? marshaled = null;
+            var ok = false;
+            dispatcher.Invoke(() => ok = DecodeOnSta(packet, receivedTimestampMs, out marshaled));
+            frame = marshaled;
+            return ok;
+        }
+
+        return DecodeOnSta(packet, receivedTimestampMs, out frame);
+    }
+
+    private static bool DecodeOnSta(VideoPacket packet, long receivedTimestampMs, out DecodedFrame? frame)
+    {
+        frame = null;
         try
         {
             using var stream = new MemoryStream(packet.Payload.ToArray(), writable: false);

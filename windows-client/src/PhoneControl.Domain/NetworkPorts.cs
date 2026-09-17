@@ -5,7 +5,8 @@ public sealed record NetworkAdapterSnapshot(
     string Description,
     string Type,
     IReadOnlyList<string> UnicastIpv4,
-    IReadOnlyList<string> GatewayIpv4);
+    IReadOnlyList<string> GatewayIpv4,
+    IReadOnlyList<string>? DhcpServerIpv4 = null);
 
 public sealed record TetherCandidate(
     string Host,

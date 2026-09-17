@@ -32,4 +32,6 @@ public sealed class DeviceStatusPayload
     public int? ScreenWidth { get; init; }
     public int? ScreenHeight { get; init; }
     public int Rotation { get; init; }
+    public bool? Accessibility { get; init; }
+    public bool? MediaProjection { get; init; }
 }

@@ -11,6 +11,7 @@ class PermissionGuide {
         PermissionGuideItem("accessibility", "Accessibility", "android.settings.ACCESSIBILITY_SETTINGS"),
         PermissionGuideItem("notifications", "Notification access", "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"),
         PermissionGuideItem("capture", "Screen capture (system dialog, not ADB)", "runtime"),
+        PermissionGuideItem("audio", "Microphone permission (needed to copy phone playback to the PC)", "runtime"),
         PermissionGuideItem("sms", "SMS", "runtime")
     )
 }

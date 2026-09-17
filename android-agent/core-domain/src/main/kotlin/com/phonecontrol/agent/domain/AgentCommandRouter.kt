@@ -14,7 +14,9 @@ data class DeviceStatusFields(
     val network: String,
     val screenWidth: Int? = null,
     val screenHeight: Int? = null,
-    val rotation: Int = 0
+    val rotation: Int = 0,
+    val accessibilityGranted: Boolean? = null,
+    val captureGranted: Boolean? = null
 )
 
 interface AgentCommandSink {
@@ -25,12 +27,14 @@ interface AgentCommandSink {
     fun isPaired(): Boolean
     fun displayedPin(): String?
     fun displayedSas(): String?
+    fun persistPairingAsync(pairing: TrustedPairing) {}
     fun deviceStatus(): DeviceStatusFields
     fun isCaptureGranted(): Boolean
     fun adapt(maxFps: Int, maxWidth: Int, bitrateKbps: Int)
     fun requestStopCapture()
     fun injectTouch(command: TouchCommand): Boolean
     fun injectKey(key: String): Boolean
+    fun injectText(text: String): Boolean = false
 }
 
 class AgentCommandRouter(
@@ -105,6 +109,7 @@ class AgentCommandRouter(
         val pin = JsonLite.stringField(envelope.payloadJson.orEmpty(), "pin") ?: ""
         return when (val result = sink.submitPin(pin)) {
             is PinSubmitResult.Accepted -> {
+                sink.persistPairingAsync(result.pairing)
                 val token = java.util.Base64.getEncoder().encodeToString(result.pairing.sessionToken)
                 val json = """{"pairingId":${JsonLite.quote(result.pairing.pairingId)},"sessionToken":${JsonLite.quote(token)},"expiresAt":${result.pairing.expiresAtEpochMs},"sas":${JsonLite.quote(result.sas)}}"""
                 envelope.copy(type = "pairing.accepted", payloadJson = json, error = null)
@@ -128,7 +133,7 @@ class AgentCommandRouter(
 
     private fun status(envelope: Envelope): Envelope {
         val fields = sink.deviceStatus()
-        val json = """{"batteryPercent":${fields.batteryPercent ?: "null"},"charging":${fields.charging ?: "null"},"network":${JsonLite.quote(fields.network)},"deviceTimeUtc":${System.currentTimeMillis()},"screenWidth":${fields.screenWidth ?: "null"},"screenHeight":${fields.screenHeight ?: "null"},"rotation":${fields.rotation}}"""
+        val json = """{"batteryPercent":${fields.batteryPercent ?: "null"},"charging":${fields.charging ?: "null"},"network":${JsonLite.quote(fields.network)},"deviceTimeUtc":${System.currentTimeMillis()},"screenWidth":${fields.screenWidth ?: "null"},"screenHeight":${fields.screenHeight ?: "null"},"rotation":${fields.rotation},"accessibility":${fields.accessibilityGranted ?: "null"},"mediaProjection":${fields.captureGranted ?: "null"}}"""
         return envelope.copy(type = envelope.type, payloadJson = json, error = null)
     }
 
@@ -178,8 +183,14 @@ class AgentCommandRouter(
     }
 
     private fun injectKey(envelope: Envelope): Envelope {
-        val key = JsonLite.stringField(envelope.payloadJson.orEmpty(), "key") ?: return ok(envelope)
-        return if (sink.injectKey(key)) ok(envelope) else permission(envelope, "Accessibility is not enabled.")
+        val payload = envelope.payloadJson.orEmpty()
+        val key = JsonLite.stringField(payload, "key") ?: ""
+        val text = JsonLite.stringField(payload, "text")
+        val ok = when {
+            !text.isNullOrEmpty() || key == "type" -> sink.injectText(text ?: "")
+            else -> sink.injectKey(key)
+        }
+        return if (ok) ok(envelope) else permission(envelope, "Accessibility is not enabled.")
     }
 
     private fun pong(envelope: Envelope): Envelope {

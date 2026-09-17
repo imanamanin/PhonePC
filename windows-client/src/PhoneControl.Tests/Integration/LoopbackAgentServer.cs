@@ -12,10 +12,11 @@ public sealed class LoopbackAgentServer : IAsyncDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _acceptLoop;
 
-    private LoopbackAgentServer(TcpListener listener, bool pairingRequired)
+    private LoopbackAgentServer(TcpListener listener, bool pairingRequired, TimeSpan pairingReplyDelay)
     {
         _listener = listener;
         PairingRequired = pairingRequired;
+        PairingReplyDelay = pairingReplyDelay;
         var endpoint = (IPEndPoint)_listener.LocalEndpoint;
         Port = endpoint.Port;
         ExpectedPin = "123456";
@@ -26,6 +27,7 @@ public sealed class LoopbackAgentServer : IAsyncDisposable
 
     public int Port { get; }
     public bool PairingRequired { get; }
+    public TimeSpan PairingReplyDelay { get; }
     public string ExpectedPin { get; }
     public string IssuedPairingId { get; }
     public string IssuedToken { get; }
@@ -33,11 +35,13 @@ public sealed class LoopbackAgentServer : IAsyncDisposable
     public int PongCount { get; private set; }
     public int PairingAcceptedCount { get; private set; }
 
-    public static async Task<LoopbackAgentServer> StartAsync(bool pairingRequired = false)
+    public static async Task<LoopbackAgentServer> StartAsync(
+        bool pairingRequired = false,
+        TimeSpan? pairingReplyDelay = null)
     {
         var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
-        var server = new LoopbackAgentServer(listener, pairingRequired);
+        var server = new LoopbackAgentServer(listener, pairingRequired, pairingReplyDelay ?? TimeSpan.Zero);
         await Task.Yield();
         return server;
     }
@@ -142,6 +146,11 @@ public sealed class LoopbackAgentServer : IAsyncDisposable
                 }
                 else if (envelope.Type == MessageTypes.PairingSubmit)
                 {
+                    if (PairingReplyDelay > TimeSpan.Zero)
+                    {
+                        await Task.Delay(PairingReplyDelay, cancellationToken).ConfigureAwait(false);
+                    }
+
                     var pin = EnvelopeFactory.ReadPayload<PairingSubmitPayload>(envelope)?.Pin;
                     if (pin == ExpectedPin)
                     {

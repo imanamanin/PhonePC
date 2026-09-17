@@ -61,6 +61,17 @@ public static class EnvelopeFactory
             return default;
         }
 
-        return envelope.Payload.Value.Deserialize<T>(MessageSerializer.Options);
+        try
+        {
+            return envelope.Payload.Value.Deserialize<T>(MessageSerializer.Options);
+        }
+        catch (JsonException)
+        {
+            return default;
+        }
+        catch (NotSupportedException)
+        {
+            return default;
+        }
     }
 }

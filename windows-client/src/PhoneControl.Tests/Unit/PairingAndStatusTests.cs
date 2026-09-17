@@ -57,6 +57,29 @@ public sealed class PairingAndStatusTests
     }
 
     [Fact]
+    public async Task SubmitPin_CorruptToken_SetsPairingFailedWithoutThrowing()
+    {
+        await using var manager = ConnectionHarness.Create(
+            transport: new AutoReplyingTransportFactory(() => new AutoReplyingTransport(invalidAcceptedToken: true)));
+        await manager.ConnectAsync(CancellationToken.None);
+        var act = async () => await manager.SubmitPinAsync("123456", CancellationToken.None);
+        await act.Should().NotThrowAsync();
+        manager.Snapshot.ErrorCode.Should().Be("PAIRING_FAILED");
+        manager.Snapshot.State.Should().Be(ConnectionState.PairingRequired);
+    }
+
+    [Fact]
+    public async Task SubmitPin_TransportDrop_SetsPairingFailedWithoutThrowing()
+    {
+        await using var manager = ConnectionHarness.Create(
+            transport: new AutoReplyingTransportFactory(() => new AutoReplyingTransport(throwOnPairingSubmit: true)));
+        await manager.ConnectAsync(CancellationToken.None);
+        var act = async () => await manager.SubmitPinAsync("123456", CancellationToken.None);
+        await act.Should().NotThrowAsync();
+        manager.Snapshot.ErrorCode.Should().Be("PAIRING_FAILED");
+    }
+
+    [Fact]
     public async Task SubmitPin_WrongCode_StaysPairingRequired()
     {
         await using var manager = ConnectionHarness.Create();

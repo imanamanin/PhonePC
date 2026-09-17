@@ -1,35 +1,55 @@
 package com.phonecontrol.agent.screencapture
 
+import android.Manifest
 import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
+import android.media.Image
+import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
-import android.view.Surface
 import androidx.core.app.NotificationCompat
 import com.phonecontrol.agent.domain.ProtocolPorts
 import com.phonecontrol.agent.domain.VideoPacket
+import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
+/**
+ * Channel C on TCP 17891. JPEG is the live codec because Windows already decodes it with WIC.
+ * Capture still starts only after the system MediaProjection dialog.
+ */
 class ScreenCaptureService : Service() {
     private var projection: MediaProjection? = null
     private var display: VirtualDisplay? = null
-    private var encoder: VideoEncoder? = null
-    private var inputSurface: Surface? = null
+    private var imageReader: ImageReader? = null
+    private var imageThread: HandlerThread? = null
     private var serverThread: Thread? = null
     private var serverSocket: ServerSocket? = null
+    private val audio = PlaybackAudioCapture()
     private val running = AtomicBoolean(false)
+    private val latestJpeg = AtomicReference<ByteArray?>()
+    private val jpegSeq = AtomicLong(0)
+    private var lastJpegMs = 0L
+    private var frameWidth = 0
+    private var frameHeight = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -66,69 +86,130 @@ class ScreenCaptureService : Service() {
             }
         }, null)
         ScreenCaptureController.instance.onUserGrantedProjection()
-        val height = (CaptureSettings.maxWidth * 16 / 9).coerceAtMost(1920)
-        startEncoder(CaptureSettings.maxWidth, height, CaptureSettings.maxFps, CaptureSettings.bitrateKbps)
+        val metrics = resources.displayMetrics
+        val srcW = metrics.widthPixels.coerceAtLeast(2)
+        val srcH = metrics.heightPixels.coerceAtLeast(2)
+        val width = (CaptureSettings.maxWidth and 1.inv()).coerceAtLeast(2)
+        val height = ((width.toLong() * srcH / srcW).toInt() and 1.inv()).coerceAtLeast(2)
+        startReader(width, height)
         return START_STICKY
     }
 
-    private fun startEncoder(width: Int, height: Int, fps: Int, bitrateKbps: Int) {
-        val h264 = MediaCodecH264Encoder()
-        val surface = h264.configure(width, height, fps, bitrateKbps) ?: return
-        encoder = h264
-        inputSurface = surface
+    private fun startReader(width: Int, height: Int) {
+        frameWidth = width
+        frameHeight = height
+        val thread = HandlerThread("jpeg-17891")
+        thread.start()
+        imageThread = thread
+        val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
+        imageReader = reader
+        reader.setOnImageAvailableListener({ pending ->
+            val image = try {
+                pending.acquireLatestImage()
+            } catch (_: Exception) {
+                null
+            } ?: return@setOnImageAvailableListener
+            image.use { encodeLatest(it) }
+        }, Handler(thread.looper))
         display = projection?.createVirtualDisplay(
             "phone-control",
             width,
             height,
             resources.displayMetrics.densityDpi,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            surface,
+            reader.surface,
             null,
             null
         )
         running.set(true)
-        serverThread = thread(name = "video-17891", isDaemon = true) { serve(h264, width, height) }
+        serverThread = thread(name = "video-17891", isDaemon = true) { serve(width, height) }
+        projection?.let { audio.start(this, it) }
     }
 
-    private fun serve(encoder: VideoEncoder, width: Int, height: Int) {
+    private fun encodeLatest(image: Image) {
+        val minGap = (1000 / CaptureSettings.maxFps.coerceIn(5, 30)).toLong()
+        val now = System.currentTimeMillis()
+        if (now - lastJpegMs < minGap) {
+            return
+        }
+        lastJpegMs = now
+        val jpeg = toJpeg(image) ?: return
+        latestJpeg.set(jpeg)
+        jpegSeq.incrementAndGet()
+    }
+
+    private fun toJpeg(image: Image): ByteArray? {
+        val plane = image.planes.firstOrNull() ?: return null
+        val buffer = plane.buffer
+        val pixelStride = plane.pixelStride.coerceAtLeast(1)
+        val rowStride = plane.rowStride
+        val rowPadding = (rowStride - pixelStride * image.width).coerceAtLeast(0)
+        val bitmapWidth = image.width + rowPadding / pixelStride
+        val bitmap = Bitmap.createBitmap(bitmapWidth, image.height, Bitmap.Config.ARGB_8888)
+        buffer.rewind()
+        bitmap.copyPixelsFromBuffer(buffer)
+        val framed = if (bitmap.width == image.width) {
+            bitmap
+        } else {
+            Bitmap.createBitmap(bitmap, 0, 0, image.width, image.height)
+        }
+        val out = ByteArrayOutputStream()
+        val ok = framed.compress(Bitmap.CompressFormat.JPEG, 70, out)
+        if (framed !== bitmap) {
+            bitmap.recycle()
+        }
+        framed.recycle()
+        val bytes = out.toByteArray()
+        return if (ok && bytes.isNotEmpty() && bytes.size <= ProtocolPorts.MAX_VIDEO_BYTES) bytes else null
+    }
+
+    private fun serve(width: Int, height: Int) {
         val server = ServerSocket()
         server.reuseAddress = true
-        server.bind(InetSocketAddress(ProtocolPorts.SCREEN))
+        server.soTimeout = 250
+        server.bind(InetSocketAddress("0.0.0.0", ProtocolPorts.SCREEN), 16)
         serverSocket = server
         server.use {
             while (running.get()) {
-                encoder.applyBitrate(CaptureSettings.bitrateKbps)
                 val socket = try {
                     server.accept()
+                } catch (_: java.net.SocketTimeoutException) {
+                    continue
                 } catch (_: Exception) {
-                    break
+                    if (!running.get()) {
+                        break
+                    }
+                    continue
                 }
                 socket.use { client ->
                     val out = client.getOutputStream()
+                    var sent = 0L
                     while (running.get()) {
-                        encoder.applyBitrate(CaptureSettings.bitrateKbps)
-                        val nals = encoder.drain()
-                        for (nal in nals) {
-                            var flags = 0
-                            if (nal.keyframe) flags = flags or VideoPacket.KEYFRAME
-                            if (nal.config) flags = flags or VideoPacket.CONFIG
-                            val packet = VideoPacket.encode(
-                                VideoPacket(
-                                    codec = VideoPacket.H264,
-                                    width = width,
-                                    height = height,
-                                    captureTimestampMs = System.currentTimeMillis(),
-                                    flags = flags,
-                                    payload = nal.bytes
-                                )
-                            )
-                            writeFrame(out, packet)
+                        val seq = jpegSeq.get()
+                        val jpeg = latestJpeg.get()
+                        if (jpeg != null && seq != sent) {
+                            writeFrame(out, jpegPacket(jpeg, width, height))
+                            sent = seq
+                        } else {
+                            Thread.sleep(10)
                         }
-                        Thread.sleep(5)
                     }
                 }
             }
         }
+    }
+
+    private fun jpegPacket(jpeg: ByteArray, width: Int, height: Int): ByteArray {
+        return VideoPacket.encode(
+            VideoPacket(
+                codec = VideoPacket.JPEG,
+                width = width,
+                height = height,
+                captureTimestampMs = System.currentTimeMillis(),
+                flags = VideoPacket.KEYFRAME,
+                payload = jpeg
+            )
+        )
     }
 
     private fun writeFrame(out: java.io.OutputStream, body: ByteArray) {
@@ -157,7 +238,13 @@ class ScreenCaptureService : Service() {
             .setContentText("Screen capture is active. Stop from the app or this notification.")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .build()
-        if (Build.VERSION.SDK_INT >= 29) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            }
+            startForeground(42, notification, types)
+        } else if (Build.VERSION.SDK_INT >= 29) {
             startForeground(42, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
             startForeground(42, notification)
@@ -166,6 +253,7 @@ class ScreenCaptureService : Service() {
 
     private fun stopCapture() {
         running.set(false)
+        audio.stop()
         try {
             serverSocket?.close()
         } catch (_: Exception) {
@@ -174,10 +262,11 @@ class ScreenCaptureService : Service() {
         serverSocket = null
         display?.release()
         display = null
-        inputSurface?.release()
-        inputSurface = null
-        encoder?.release()
-        encoder = null
+        imageReader?.close()
+        imageReader = null
+        imageThread?.quitSafely()
+        imageThread = null
+        latestJpeg.set(null)
         try {
             projection?.stop()
         } catch (_: Exception) {

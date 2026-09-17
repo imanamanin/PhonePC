@@ -13,6 +13,7 @@ public sealed class MainViewModel : ObservableObject
 {
     private readonly ConnectionManager _connection;
     private readonly IRemoteInputClient _input;
+    private readonly PointerInputController _pointer;
     private readonly IClock _clock;
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private string _phaseLabel = "Phase 3 — Pairing and state sync";
@@ -36,10 +37,12 @@ public sealed class MainViewModel : ObservableObject
         ConnectionManager connection,
         VideoSession video,
         IRemoteInputClient input,
+        PointerInputController pointer,
         IClock clock)
     {
         _connection = connection;
         _input = input;
+        _pointer = pointer;
         _clock = clock;
         _connection.StateChanged += (_, snapshot) => Marshal(() => Apply(snapshot));
         video.HudChanged += (_, hud) => Marshal(() => ApplyHud(hud));
@@ -150,18 +153,55 @@ public sealed class MainViewModel : ObservableObject
 
     private Task RefreshAsync() => _connection.RefreshDiscoveryAsync(CancellationToken.None);
 
-    private Task ConnectAsync() => _connection.ConnectAsync(CancellationToken.None);
-
-    private Task DisconnectAsync() => _connection.DisconnectAsync(CancellationToken.None);
-
     private async Task PairAsync()
     {
         var pin = PinText;
         PinText = string.Empty;
-        await _connection.SubmitPinAsync(pin, CancellationToken.None).ConfigureAwait(true);
+        try
+        {
+            await _connection.SubmitPinAsync(pin, CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception)
+        {
+            Notice = "Pairing failed. Check the 6-digit PIN on the phone and try again.";
+        }
     }
 
-    private Task UnpairAsync() => _connection.UnpairAsync(CancellationToken.None);
+    private async Task ConnectAsync()
+    {
+        try
+        {
+            await _connection.ConnectAsync(CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception)
+        {
+            Notice = "Connect failed. Keep USB tethering on and try Refresh, then Connect.";
+        }
+    }
+
+    private async Task DisconnectAsync()
+    {
+        try
+        {
+            await _connection.DisconnectAsync(CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception)
+        {
+            Notice = "Disconnect did not finish cleanly. USB tethering was not changed.";
+        }
+    }
+
+    private async Task UnpairAsync()
+    {
+        try
+        {
+            await _connection.UnpairAsync(CancellationToken.None).ConfigureAwait(true);
+        }
+        catch (Exception)
+        {
+            Notice = "Unpair failed. You can still revoke trust from the phone.";
+        }
+    }
 
     private Task SendKey(string key)
     {
@@ -203,6 +243,14 @@ public sealed class MainViewModel : ObservableObject
             ? "Discovered: none"
             : "Discovered: " + string.Join(", ", snapshot.DiscoveredEndpoints);
         BatteryText = FormatBattery(snapshot.Status);
+        PermissionsText = FormatPermissions(snapshot.Status);
+        if (snapshot.Status?.ScreenWidth is > 0 && snapshot.Status.ScreenHeight is > 0)
+        {
+            _pointer.Screen = new PhoneScreen(
+                snapshot.Status.ScreenWidth.Value,
+                snapshot.Status.ScreenHeight.Value,
+                snapshot.Status.Rotation);
+        }
         SasText = string.IsNullOrEmpty(snapshot.Sas)
             ? (snapshot.TrustedDevice ? "Trusted device (token stored with DPAPI)" : "SAS: —")
             : $"Numeric comparison SAS: {snapshot.Sas} (must match the phone)";
@@ -215,12 +263,31 @@ public sealed class MainViewModel : ObservableObject
                 "PIN_LOCKED" => "Too many PIN attempts. Start pairing again on the phone.",
                 "PIN_INVALID" => "PIN must be 6 digits.",
                 "SAS_MISMATCH" => "Numeric comparison failed. Unpair and start over.",
+                "PAIRING_FAILED" => "Pairing failed. Check the PIN on the phone and try Pair again. The app stays open.",
+                "TIMEOUT" => "The phone did not answer in time. Keep USB tethering on, keep the Android app open, then press Connect.",
+                "PHONE_UNREACHABLE" => "Cannot reach the phone agent. Keep USB tethering on, keep the Android app in the foreground, then press Connect.",
                 _ => $"Error code: {snapshot.ErrorCode}"
             };
         }
         else if (snapshot.State == ConnectionState.PairingRequired)
         {
             Notice = "Pairing required. Type the 6-digit PIN shown only on the phone, then Pair.";
+        }
+        else if (snapshot.State == ConnectionState.Connected)
+        {
+            Notice = snapshot.TrustedDevice
+                ? snapshot.Status?.AccessibilityGranted == false
+                    ? "Image is live, but taps need Accessibility. On the phone open Accessibility settings and enable Phone Control Agent."
+                    : "Paired. Click to tap, right-click to turn the page, type after tapping a text field."
+                : "Connected.";
+        }
+        else if (snapshot.State == ConnectionState.Reconnecting)
+        {
+            Notice = "Looking for the phone. Keep USB tethering on and the Android app open, then press Connect if this stays here.";
+        }
+        else if (snapshot.State == ConnectionState.Error)
+        {
+            Notice = "Could not reach the phone. Open the Android app, keep USB tethering on, then press Connect.";
         }
 
         RefreshStatusBar(snapshot);
@@ -242,5 +309,12 @@ public sealed class MainViewModel : ObservableObject
 
         var charge = status.Charging == true ? "charging" : "on battery";
         return $"Battery {status.BatteryPercent}% {charge}";
+    }
+
+    private static string FormatPermissions(DeviceStatus? status)
+    {
+        var access = status?.AccessibilityGranted is true ? "granted" : status?.AccessibilityGranted is false ? "off" : "unknown";
+        var capture = status?.CaptureGranted is true ? "granted" : status?.CaptureGranted is false ? "off" : "unknown";
+        return $"Accessibility: {access} | Notifications: unknown | MediaProjection: {capture} | SMS: unknown";
     }
 }

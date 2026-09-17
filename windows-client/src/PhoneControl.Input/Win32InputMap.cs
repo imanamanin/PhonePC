@@ -12,8 +12,11 @@ public enum Win32InputKind
     MouseLeftDown,
     MouseLeftUp,
     MouseWheel,
+    MouseRightDown,
+    MouseRightUp,
     KeyDown,
     KeyUp,
+    TextInput,
     Pinch
 }
 
@@ -22,7 +25,8 @@ public readonly record struct Win32InputEvent(
     int X,
     int Y,
     int Data,
-    double Scale);
+    double Scale,
+    string? Text = null);
 
 public static class Win32InputMap
 {
@@ -53,7 +57,16 @@ public static class Win32InputMap
             Win32InputKind.KeyDown => EnvelopeFactory.Create(
                 MessageTypes.InputKey,
                 timestamp,
-                new InputKeyPayload { Action = "click", Key = MapKey(input.Data) }),
+                new InputKeyPayload
+                {
+                    Action = string.IsNullOrEmpty(input.Text) ? "click" : "type",
+                    Key = string.IsNullOrEmpty(input.Text) ? MapKey(input.Data) : "type",
+                    Text = input.Text
+                }),
+            Win32InputKind.TextInput => EnvelopeFactory.Create(
+                MessageTypes.InputKey,
+                timestamp,
+                new InputKeyPayload { Action = "type", Key = "type", Text = input.Text ?? string.Empty }),
             _ => EnvelopeFactory.Create(
                 MessageTypes.InputKey,
                 timestamp,
@@ -67,8 +80,8 @@ public static class Win32InputMap
             VkEscape => "back",
             VkHome => "home",
             VkReturn => "enter",
-            VkBack => "back",
-            0x21 => "volume_up", // VK_PRIOR as extra mapping unused
+            VkBack => "backspace",
+            0x2E => "delete",
             _ => "text"
         };
 
@@ -108,6 +121,8 @@ public static class NativeSendInput
     public const uint MouseEventMove = 0x0001;
     public const uint MouseEventLeftDown = 0x0002;
     public const uint MouseEventLeftUp = 0x0004;
+    public const uint MouseEventRightDown = 0x0008;
+    public const uint MouseEventRightUp = 0x0010;
     public const uint MouseEventWheel = 0x0800;
     public const uint KeyEventKeyUp = 0x0002;
 
@@ -121,6 +136,8 @@ public static class NativeSendInput
         {
             MouseEventLeftDown => Win32InputKind.MouseLeftDown,
             MouseEventLeftUp => Win32InputKind.MouseLeftUp,
+            MouseEventRightDown => Win32InputKind.MouseRightDown,
+            MouseEventRightUp => Win32InputKind.MouseRightUp,
             MouseEventWheel => Win32InputKind.MouseWheel,
             _ => Win32InputKind.MouseMove
         };

@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">التحكم بالهاتف</string>
+    <string name="hint_short">أبقِ USB tethering قيد التشغيل. أدخل الرمز في Windows ثم ابدأ الالتقاط.</string>
+    <string name="start_capture">بدء الالتقاط</string>
+    <string name="stop_capture">إيقاف الالتقاط</string>
+    <string name="refresh_pairing">رمز جديد</string>
+    <string name="clear_pairing">إلغاء الربط</string>
+    <string name="open_accessibility">إمكانية الوصول</string>
+    <string name="status_listening">يستمع</string>
+    <string name="status_offline">غير متصل</string>
+    <string name="status_paired">مرتبط</string>
+    <string name="status_show_pin">أدخل هذا الرمز في Windows</string>
+    <string name="status_sas">مطابقة: %1$s</string>
+    <string name="lang_fa">فا</string>
+    <string name="lang_en">EN</string>
+    <string name="lang_ar">عر</string>
+    <string name="accessibility_description">يسمح للكمبيوتر بالنقر والكتابة على هاتفك عند طلبك.</string>
+    <string name="control_listen_title">التحكم بالهاتف</string>
+    <string name="control_listen_text">جاهز لـ Windows</string>
+</resources>

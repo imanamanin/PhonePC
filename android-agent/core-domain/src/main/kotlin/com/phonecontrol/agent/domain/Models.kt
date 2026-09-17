@@ -3,6 +3,7 @@ package com.phonecontrol.agent.domain
 object ProtocolPorts {
     const val CONTROL = 17890
     const val SCREEN = 17891
+    const val AUDIO = 17892
     const val VERSION = 1
     const val HEARTBEAT_MS = 5000
     const val TIMEOUT_MS = 15000

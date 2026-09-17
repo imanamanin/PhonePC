@@ -63,7 +63,7 @@ public sealed class ConnectionManagerTests
         manager.StateChanged += (_, snap) => states.Add(snap.State);
         await manager.ConnectAsync(CancellationToken.None);
         manager.Snapshot.State.Should().Be(ConnectionState.Error);
-        manager.Snapshot.ErrorCode.Should().Be("TIMEOUT");
+        manager.Snapshot.ErrorCode.Should().Be("PHONE_UNREACHABLE");
         states.Should().Contain(ConnectionState.Connecting);
         states.Should().Contain(ConnectionState.Reconnecting);
         states.Should().Contain(ConnectionState.Error);

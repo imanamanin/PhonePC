@@ -9,6 +9,7 @@ namespace PhoneControl.Infrastructure;
 /// </summary>
 public sealed class TcpControlTransport : IControlTransport
 {
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
     private TcpClient? _client;
     private NetworkStream? _stream;
 
@@ -29,7 +30,15 @@ public sealed class TcpControlTransport : IControlTransport
             throw new InvalidOperationException("Transport is not connected.");
         }
 
-        await LengthPrefixedFrame.WriteAsync(_stream, frame, cancellationToken).ConfigureAwait(false);
+        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await LengthPrefixedFrame.WriteAsync(_stream, frame, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
     }
 
     public async IAsyncEnumerable<ReadOnlyMemory<byte>> ReadFramesAsync(

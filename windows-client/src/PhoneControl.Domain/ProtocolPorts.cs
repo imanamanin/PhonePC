@@ -4,6 +4,7 @@ public static class ProtocolPorts
 {
     public const int Control = 17890;
     public const int Screen = 17891;
+    public const int Audio = 17892;
     public const int ProtocolVersion = 1;
     public const int HeartbeatIntervalMs = 5000;
     public const int DefaultTimeoutMs = 15000;

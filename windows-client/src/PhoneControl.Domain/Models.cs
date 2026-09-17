@@ -15,7 +15,9 @@ public sealed record DeviceStatus(
     int? ScreenWidth,
     int? ScreenHeight,
     int Rotation,
-    long? StorageFreeBytes);
+    long? StorageFreeBytes,
+    bool? AccessibilityGranted = null,
+    bool? CaptureGranted = null);
 
 public sealed record PermissionSnapshot(
     PermissionState Accessibility,

@@ -40,11 +40,18 @@ public sealed class VideoSession : IAsyncDisposable
 
     private void OnStateChanged(object? sender, ConnectionSnapshot snapshot)
     {
-        if (snapshot.State is ConnectionState.Connected)
+        try
         {
-            Start(snapshot);
+            if (snapshot.State is ConnectionState.Connected)
+            {
+                Start(snapshot);
+            }
+            else
+            {
+                Stop();
+            }
         }
-        else
+        catch (Exception)
         {
             Stop();
         }
@@ -81,7 +88,7 @@ public sealed class VideoSession : IAsyncDisposable
             return;
         }
 
-        await TrySendAsync(MessageTypes.VideoStart, new VideoStartPayload(), cancellationToken).ConfigureAwait(false);
+        await TryStartCaptureAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             while (!cancellationToken.IsCancellationRequested)
@@ -97,6 +104,7 @@ public sealed class VideoSession : IAsyncDisposable
                 catch (Exception)
                 {
                     PublishHud(Hud with { Codec = "offline" });
+                    await TryStartCaptureAsync(cancellationToken).ConfigureAwait(false);
                     await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
                 }
             }
@@ -134,7 +142,7 @@ public sealed class VideoSession : IAsyncDisposable
             NoteThroughput(raw.Length, _clock.UtcNow);
             if (!_decoder.TryDecode(packet, received, out var frame) || frame is null)
             {
-                PublishHud(Hud with { Codec = packet.Codec + " (decoder)" });
+                PublishHud(Hud with { Codec = packet.Codec.ToString() });
                 continue;
             }
 
@@ -165,6 +173,33 @@ public sealed class VideoSession : IAsyncDisposable
                     },
                     cancellationToken).ConfigureAwait(false);
             }
+        }
+    }
+
+    private async Task TryStartCaptureAsync(CancellationToken cancellationToken)
+    {
+        if (!_connection.CanSend)
+        {
+            return;
+        }
+
+        try
+        {
+            var reply = await _connection.RequestAsync(
+                EnvelopeFactory.Create(
+                    MessageTypes.VideoStart,
+                    _clock.UtcNow.ToUnixTimeMilliseconds(),
+                    new VideoStartPayload()),
+                TimeSpan.FromSeconds(3),
+                cancellationToken).ConfigureAwait(false);
+            if (string.Equals(reply?.Error?.Code, "PERMISSION_DENIED", StringComparison.Ordinal))
+            {
+                PublishHud(Hud with { Codec = "need-capture" });
+            }
+        }
+        catch (Exception)
+        {
+            // Control channel already closed.
         }
     }
 

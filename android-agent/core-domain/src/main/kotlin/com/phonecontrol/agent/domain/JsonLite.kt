@@ -86,7 +86,29 @@ object JsonLite {
         while (i < json.length) {
             val ch = json[i]
             if (ch == '\\' && i + 1 < json.length) {
-                builder.append(json[i + 1])
+                when (val escaped = json[i + 1]) {
+                    '"' -> builder.append('"')
+                    '\\' -> builder.append('\\')
+                    '/' -> builder.append('/')
+                    'b' -> builder.append('\u0008')
+                    'f' -> builder.append('\u000C')
+                    'n' -> builder.append('\n')
+                    'r' -> builder.append('\r')
+                    't' -> builder.append('\t')
+                    'u' -> {
+                        if (i + 5 < json.length) {
+                            val hex = json.substring(i + 2, i + 6)
+                            val code = hex.toIntOrNull(16)
+                            if (code != null) {
+                                builder.append(code.toChar())
+                                i += 6
+                                continue
+                            }
+                        }
+                        builder.append(escaped)
+                    }
+                    else -> builder.append(escaped)
+                }
                 i += 2
                 continue
             }

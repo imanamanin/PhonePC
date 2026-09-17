@@ -25,6 +25,7 @@ class PairingEngine(
     private val tokenTtlMs: Long = 30L * 24 * 60 * 60 * 1000L,
     private val maxAttempts: Int = 5
 ) {
+    private val gate = Any()
     private var challenge: PairingCode? = null
     private var attempts: Int = 0
     var trusted: TrustedPairing? = null
@@ -32,17 +33,19 @@ class PairingEngine(
     var lastSas: String? = null
         private set
 
-    fun restore(record: TrustedPairing) {
+    fun restore(record: TrustedPairing) = synchronized(gate) {
         trusted = record
         lastSas = sas(record.sessionToken)
     }
 
-    fun displayedPin(): String? {
-        val code = ensureChallenge()
-        return if (code.isExpired(nowMs())) null else code.value
+    fun displayedPin(): String? = synchronized(gate) {
+        val code = ensureChallengeLocked()
+        if (code.isExpired(nowMs())) null else code.value
     }
 
-    fun ensureChallenge(): PairingCode {
+    fun ensureChallenge(): PairingCode = synchronized(gate) { ensureChallengeLocked() }
+
+    private fun ensureChallengeLocked(): PairingCode {
         val existing = challenge
         if (existing != null && !existing.isExpired(nowMs()) && attempts < maxAttempts) {
             return existing
@@ -53,18 +56,18 @@ class PairingEngine(
         return created
     }
 
-    fun submitPin(pin: String): PinSubmitResult {
-        val code = challenge ?: return PinSubmitResult.Expired
+    fun submitPin(pin: String): PinSubmitResult = synchronized(gate) {
+        val code = challenge ?: return@synchronized PinSubmitResult.Expired
         if (code.isExpired(nowMs())) {
             challenge = null
-            return PinSubmitResult.Expired
+            return@synchronized PinSubmitResult.Expired
         }
         if (attempts >= maxAttempts) {
-            return PinSubmitResult.Locked
+            return@synchronized PinSubmitResult.Locked
         }
         attempts++
         if (!constantTimeEquals(code.value, pin)) {
-            return if (attempts >= maxAttempts) PinSubmitResult.Locked else PinSubmitResult.Rejected
+            return@synchronized if (attempts >= maxAttempts) PinSubmitResult.Locked else PinSubmitResult.Rejected
         }
         val token = randomBytes(32)
         val pairing = TrustedPairing(
@@ -76,35 +79,35 @@ class PairingEngine(
         lastSas = sas(token)
         challenge = null
         attempts = 0
-        return PinSubmitResult.Accepted(pairing, lastSas!!)
+        PinSubmitResult.Accepted(pairing, lastSas!!)
     }
 
-    fun validateToken(pairingId: String?, tokenB64: String?): Boolean {
-        val current = trusted ?: return false
+    fun validateToken(pairingId: String?, tokenB64: String?): Boolean = synchronized(gate) {
+        val current = trusted ?: return@synchronized false
         if (current.expiresAtEpochMs <= nowMs()) {
             trusted = null
-            return false
+            return@synchronized false
         }
-        if (pairingId.isNullOrBlank() || tokenB64.isNullOrBlank()) return false
-        if (!constantTimeEquals(current.pairingId, pairingId)) return false
+        if (pairingId.isNullOrBlank() || tokenB64.isNullOrBlank()) return@synchronized false
+        if (!constantTimeEquals(current.pairingId, pairingId)) return@synchronized false
         val incoming = try {
             java.util.Base64.getDecoder().decode(tokenB64)
         } catch (_: IllegalArgumentException) {
-            return false
+            return@synchronized false
         }
-        return constantTimeEquals(current.sessionToken, incoming)
+        constantTimeEquals(current.sessionToken, incoming)
     }
 
-    fun isPaired(): Boolean {
-        val current = trusted ?: return false
+    fun isPaired(): Boolean = synchronized(gate) {
+        val current = trusted ?: return@synchronized false
         if (current.expiresAtEpochMs <= nowMs()) {
             trusted = null
-            return false
+            return@synchronized false
         }
-        return true
+        true
     }
 
-    fun clear() {
+    fun clear() = synchronized(gate) {
         trusted = null
         lastSas = null
         challenge = null

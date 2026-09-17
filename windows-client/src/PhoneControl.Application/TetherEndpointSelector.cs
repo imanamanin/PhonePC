@@ -21,11 +21,31 @@ public static class TetherEndpointSelector
                 continue;
             }
 
+            // Modern Android USB tethering often uses 10.x (not only 192.168.42.129).
             foreach (var gateway in adapter.GatewayIpv4)
             {
-                if (IsTetherIpv4(gateway))
+                if (IsUsableHost(gateway) && !IsOwnAddress(adapter, gateway))
                 {
                     Add(results, seen, gateway, port, adapter.Name, "gateway", isFallback: false);
+                }
+            }
+
+            foreach (var dhcp in adapter.DhcpServerIpv4 ?? Array.Empty<string>())
+            {
+                if (IsUsableHost(dhcp) && !IsOwnAddress(adapter, dhcp))
+                {
+                    Add(results, seen, dhcp, port, adapter.Name, "dhcp", isFallback: false);
+                }
+            }
+
+            if (!results.Any(c => !c.IsFallback && c.AdapterName == adapter.Name))
+            {
+                foreach (var ip in adapter.UnicastIpv4)
+                {
+                    if (TryInferSlash24Gateway(ip, out var inferred) && !IsOwnAddress(adapter, inferred))
+                    {
+                        Add(results, seen, inferred, port, adapter.Name, "inferred-gateway", isFallback: false);
+                    }
                 }
             }
 
@@ -47,14 +67,19 @@ public static class TetherEndpointSelector
     public static bool IsTetherLike(NetworkAdapterSnapshot adapter)
     {
         var blob = $"{adapter.Name} {adapter.Description} {adapter.Type}";
-        if (ContainsAny(blob, "RNDIS", "NDIS", "Remote NDIS", "USB", "Android", "tether", "Tethering"))
+        if (ContainsAny(blob, "Wireless", "Wi-Fi", "WiFi", "802.11"))
+        {
+            return adapter.UnicastIpv4.Any(IsTetherIpv4) || adapter.GatewayIpv4.Any(IsTetherIpv4);
+        }
+
+        if (ContainsAny(blob, "RNDIS", "Remote NDIS", "Android", "tether", "Tethering"))
         {
             return true;
         }
 
-        if (!IsEthernetFamily(adapter.Type))
+        if (ContainsAny(blob, "USB", "NDIS") && IsEthernetFamily(adapter.Type))
         {
-            return adapter.UnicastIpv4.Any(IsTetherIpv4) || adapter.GatewayIpv4.Any(IsTetherIpv4);
+            return true;
         }
 
         return adapter.UnicastIpv4.Any(IsTetherIpv4) || adapter.GatewayIpv4.Any(IsTetherIpv4);
@@ -68,6 +93,45 @@ public static class TetherEndpointSelector
         }
 
         return SubnetPrefixes.Any(prefix => address.StartsWith(prefix, StringComparison.Ordinal));
+    }
+
+    public static bool IsUsableHost(string address)
+    {
+        if (!IPAddress.TryParse(address, out var parsed) || parsed.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            return false;
+        }
+
+        if (IPAddress.IsLoopback(parsed))
+        {
+            return false;
+        }
+
+        var bytes = parsed.GetAddressBytes();
+        return bytes[0] is not 0 and < 224;
+    }
+
+    private static bool IsOwnAddress(NetworkAdapterSnapshot adapter, string host)
+    {
+        return adapter.UnicastIpv4.Contains(host, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool TryInferSlash24Gateway(string unicast, out string inferred)
+    {
+        inferred = string.Empty;
+        if (!IPAddress.TryParse(unicast, out var parsed) || parsed.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            return false;
+        }
+
+        var bytes = parsed.GetAddressBytes();
+        if (bytes[3] == 1)
+        {
+            return false;
+        }
+
+        inferred = $"{bytes[0]}.{bytes[1]}.{bytes[2]}.1";
+        return IsUsableHost(inferred);
     }
 
     private static bool IsEthernetFamily(string type)

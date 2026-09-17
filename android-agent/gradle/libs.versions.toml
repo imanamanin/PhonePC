@@ -16,6 +16,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version = "1.9.3" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version = "2.8.7" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version = "1.0.0" }
+material = { group = "com.google.android.material", name = "material", version = "1.12.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

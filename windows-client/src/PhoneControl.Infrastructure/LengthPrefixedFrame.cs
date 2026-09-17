@@ -90,12 +90,19 @@ public sealed class WindowsNetworkInterfaceProbe : INetworkInterfaceProbe
                     .Where(g => g.Address.AddressFamily == AddressFamily.InterNetwork)
                     .Select(g => g.Address.ToString())
                     .ToArray();
+                var dhcp = OperatingSystem.IsWindows()
+                    ? props.DhcpServerAddresses
+                        .Where(a => a.AddressFamily == AddressFamily.InterNetwork)
+                        .Select(a => a.ToString())
+                        .ToArray()
+                    : Array.Empty<string>();
                 list.Add(new NetworkAdapterSnapshot(
                     nic.Name,
                     nic.Description,
                     nic.NetworkInterfaceType.ToString(),
                     unicast,
-                    gateways));
+                    gateways,
+                    dhcp));
             }
             catch (NetworkInformationException)
             {

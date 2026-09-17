@@ -12,6 +12,7 @@ import com.phonecontrol.agent.domain.HelloInfo
 import com.phonecontrol.agent.domain.PairingEngine
 import com.phonecontrol.agent.domain.PinSubmitResult
 import com.phonecontrol.agent.domain.TouchCommand
+import com.phonecontrol.agent.domain.TrustedPairing
 import com.phonecontrol.agent.network.ControlServer
 import com.phonecontrol.agent.screencapture.CaptureSettings
 import com.phonecontrol.agent.screencapture.ScreenCaptureController
@@ -20,15 +21,33 @@ import com.phonecontrol.agent.screencapture.ScreenCaptureService
 class AgentApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        instance = this
         val store = EncryptedPairingStore(this)
         val engine = PairingEngine(nowMs = { System.currentTimeMillis() })
         store.load()?.let { engine.restore(it) }
         runtime = AgentRuntime(engine, store, DeviceStatusReader(this))
-        ControlServer.instance.start(AppCommandSink(this, runtime!!))
+        try {
+            startControlListener()
+        } catch (_: Exception) {
+            ensureControlServer()
+        }
     }
 
     companion object {
         var runtime: AgentRuntime? = null
+        private var instance: AgentApp? = null
+
+        fun ensureControlServer() {
+            val app = instance ?: return
+            val rt = runtime ?: return
+            ControlServer.instance.start(AppCommandSink(app, rt))
+        }
+
+        fun startControlListener() {
+            val app = instance ?: return
+            ensureControlServer()
+            ControlListenService.start(app)
+        }
     }
 }
 
@@ -53,12 +72,16 @@ private class AppCommandSink(
     override fun evaluateHello(pairingId: String?, sessionToken: String?): Boolean =
         runtime.engine.validateToken(pairingId, sessionToken)
 
-    override fun submitPin(pin: String): PinSubmitResult {
-        val result = runtime.engine.submitPin(pin)
-        if (result is PinSubmitResult.Accepted) {
-            runtime.store.save(result.pairing)
-        }
-        return result
+    override fun submitPin(pin: String): PinSubmitResult = runtime.engine.submitPin(pin)
+
+    override fun persistPairingAsync(pairing: TrustedPairing) {
+        Thread({
+            try {
+                runtime.store.save(pairing)
+            } catch (_: Exception) {
+                // In-memory pairing still holds for this session.
+            }
+        }, "pairing-persist").start()
     }
 
     override fun clearPairing() {
@@ -72,7 +95,13 @@ private class AppCommandSink(
 
     override fun displayedSas(): String? = runtime.engine.lastSas
 
-    override fun deviceStatus(): DeviceStatusFields = runtime.status.read()
+    override fun deviceStatus(): DeviceStatusFields {
+        val fields = runtime.status.read()
+        return fields.copy(
+            accessibilityGranted = InputInjector.touchAvailable(),
+            captureGranted = ScreenCaptureController.instance.running
+        )
+    }
 
     override fun isCaptureGranted(): Boolean = ScreenCaptureController.instance.running
 
@@ -90,4 +119,6 @@ private class AppCommandSink(
     override fun injectTouch(command: TouchCommand): Boolean = InputInjector.touch(command)
 
     override fun injectKey(key: String): Boolean = InputInjector.key(key)
+
+    override fun injectText(text: String): Boolean = InputInjector.type(text)
 }

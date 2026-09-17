@@ -208,3 +208,46 @@ public sealed class StreamDebugStats
     public int Height { get; init; }
     public int LatencyMs { get; init; }
 }
+
+public sealed record AudioPacket(
+    int SampleRate,
+    int Channels,
+    int BitsPerSample,
+    long CaptureTimestampMs,
+    ReadOnlyMemory<byte> Pcm)
+{
+    public const int Pcm16 = 1;
+}
+
+public static class AudioPacketCodec
+{
+    public const int HeaderSize = 16;
+
+    public static byte[] Encode(AudioPacket packet)
+    {
+        var pcm = packet.Pcm.Span;
+        var buffer = new byte[HeaderSize + pcm.Length];
+        BinaryPrimitives.WriteInt64BigEndian(buffer.AsSpan(1, 8), packet.CaptureTimestampMs);
+        BinaryPrimitives.WriteInt32BigEndian(buffer.AsSpan(9, 4), packet.SampleRate);
+        buffer[13] = (byte)packet.Channels;
+        buffer[14] = (byte)packet.BitsPerSample;
+        buffer[15] = AudioPacket.Pcm16;
+        pcm.CopyTo(buffer.AsSpan(HeaderSize));
+        return buffer;
+    }
+
+    public static AudioPacket Decode(ReadOnlySpan<byte> buffer)
+    {
+        if (buffer.Length < HeaderSize)
+        {
+            throw new InvalidOperationException("Audio packet header is truncated.");
+        }
+
+        var timestamp = BinaryPrimitives.ReadInt64BigEndian(buffer.Slice(1, 8));
+        var sampleRate = BinaryPrimitives.ReadInt32BigEndian(buffer.Slice(9, 4));
+        var channels = buffer[13];
+        var bits = buffer[14];
+        var pcm = buffer[HeaderSize..].ToArray();
+        return new AudioPacket(sampleRate, channels, bits, timestamp, pcm);
+    }
+}

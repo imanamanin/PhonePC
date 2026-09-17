@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">کنترل گوشی</string>
+    <string name="hint_short">تترینگ USB روشن باشد. PIN را در ویندوز بزن، بعد تصویر را شروع کن.</string>
+    <string name="start_capture">شروع تصویر</string>
+    <string name="stop_capture">توقف تصویر</string>
+    <string name="refresh_pairing">PIN جدید</string>
+    <string name="clear_pairing">قطع جفت</string>
+    <string name="open_accessibility">دسترسی</string>
+    <string name="status_listening">در حال گوش دادن</string>
+    <string name="status_offline">قطع</string>
+    <string name="status_paired">جفت شد</string>
+    <string name="status_show_pin">این PIN را در ویندوز وارد کن</string>
+    <string name="status_sas">تطبیق: %1$s</string>
+    <string name="lang_fa">فا</string>
+    <string name="lang_en">EN</string>
+    <string name="lang_ar">عر</string>
+    <string name="accessibility_description">اجازه می‌دهد رایانه با درخواست شما روی گوشی تپ و تایپ کند.</string>
+    <string name="control_listen_title">کنترل گوشی</string>
+    <string name="control_listen_text">آماده برای ویندوز</string>
+</resources>

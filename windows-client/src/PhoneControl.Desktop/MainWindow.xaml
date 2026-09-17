@@ -57,6 +57,7 @@
                             <TextBlock Text="{Binding DeviceText}" Margin="0,4,0,0"/>
                             <TextBlock Text="{Binding TetheringText}" Margin="0,4,0,0"/>
                             <TextBlock Text="{Binding AdbText}" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding DiscoveredText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding EndpointText}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding BatteryText}" Margin="0,4,0,0"/>
                             <TextBlock Text="{Binding SasText}" Margin="0,4,0,0" TextWrapping="Wrap"/>

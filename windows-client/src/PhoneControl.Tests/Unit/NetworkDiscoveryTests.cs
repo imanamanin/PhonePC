@@ -66,4 +66,58 @@ public sealed class NetworkDiscoveryTests
         var candidates = TetherEndpointSelector.FromAdapters(adapters);
         candidates.Should().ContainSingle(c => c.IsFallback);
     }
+
+    [Fact]
+    public void DiscoversRndisGateway_OnModernTenDotSubnet()
+    {
+        var adapters = new[]
+        {
+            new NetworkAdapterSnapshot(
+                "Ethernet 5",
+                "Remote NDIS Compatible Device #2",
+                "Ethernet",
+                new[] { "10.242.187.143" },
+                new[] { "10.242.187.225" },
+                new[] { "10.242.187.225" })
+        };
+
+        var candidates = TetherEndpointSelector.FromAdapters(adapters);
+        candidates.Should().Contain(c => c.Host == "10.242.187.225" && !c.IsFallback);
+        candidates.First(c => !c.IsFallback).Host.Should().Be("10.242.187.225");
+        candidates.Should().Contain(c => c.IsFallback);
+    }
+
+    [Fact]
+    public void InfersSlash24Gateway_WhenRndisHasNoGateway()
+    {
+        var adapters = new[]
+        {
+            new NetworkAdapterSnapshot(
+                "Ethernet 5",
+                "Remote NDIS Compatible Device #2",
+                "Ethernet",
+                new[] { "10.242.187.143" },
+                Array.Empty<string>())
+        };
+
+        var candidates = TetherEndpointSelector.FromAdapters(adapters);
+        candidates.Should().Contain(c => c.Host == "10.242.187.1" && c.Source == "inferred-gateway" && !c.IsFallback);
+        candidates.First(c => !c.IsFallback).Host.Should().Be("10.242.187.1");
+    }
+
+    [Fact]
+    public void IgnoresUsbWifiAdapter()
+    {
+        var adapters = new[]
+        {
+            new NetworkAdapterSnapshot(
+                "Wi-Fi 2",
+                "TP-Link Wireless USB Adapter",
+                "Wireless80211",
+                new[] { "192.168.100.102" },
+                new[] { "192.168.100.1" })
+        };
+        var candidates = TetherEndpointSelector.FromAdapters(adapters);
+        candidates.Should().ContainSingle(c => c.IsFallback);
+    }
 }

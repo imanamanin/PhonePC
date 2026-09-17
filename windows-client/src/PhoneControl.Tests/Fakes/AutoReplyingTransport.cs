@@ -15,7 +15,9 @@ public sealed class AutoReplyingTransport : IControlTransport
         bool autoPong = true,
         string? expectedPin = "123456",
         string? issuedToken = null,
-        string? issuedPairingId = null)
+        string? issuedPairingId = null,
+        bool invalidAcceptedToken = false,
+        bool throwOnPairingSubmit = false)
     {
         PairingRequired = pairingRequired;
         ReplyToHello = replyToHello;
@@ -23,6 +25,8 @@ public sealed class AutoReplyingTransport : IControlTransport
         ExpectedPin = expectedPin;
         IssuedPairingId = issuedPairingId ?? Guid.NewGuid().ToString();
         IssuedToken = issuedToken ?? Convert.ToBase64String(PairingCrypto.CreateToken());
+        InvalidAcceptedToken = invalidAcceptedToken;
+        ThrowOnPairingSubmit = throwOnPairingSubmit;
     }
 
     public bool PairingRequired { get; }
@@ -31,6 +35,8 @@ public sealed class AutoReplyingTransport : IControlTransport
     public string? ExpectedPin { get; }
     public string IssuedPairingId { get; }
     public string IssuedToken { get; }
+    public bool InvalidAcceptedToken { get; }
+    public bool ThrowOnPairingSubmit { get; }
     public bool IsConnected { get; private set; }
     public List<MessageEnvelope> Sent { get; } = new();
 
@@ -72,20 +78,32 @@ public sealed class AutoReplyingTransport : IControlTransport
 
         if (envelope.Type == MessageTypes.PairingSubmit)
         {
+            if (ThrowOnPairingSubmit)
+            {
+                throw new IOException("Transport closed.");
+            }
+
             var pin = EnvelopeFactory.ReadPayload<PairingSubmitPayload>(envelope)?.Pin;
             if (ExpectedPin is not null && pin == ExpectedPin)
             {
-                var token = Convert.FromBase64String(IssuedToken);
                 var accepted = EnvelopeFactory.Create(
                     MessageTypes.PairingAccepted,
                     envelope.Timestamp,
-                    new PairingAcceptedPayload
-                    {
-                        PairingId = IssuedPairingId,
-                        SessionToken = IssuedToken,
-                        ExpiresAt = DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeMilliseconds(),
-                        Sas = PairingCrypto.ComputeSas(token)
-                    },
+                    InvalidAcceptedToken
+                        ? new PairingAcceptedPayload
+                        {
+                            PairingId = IssuedPairingId,
+                            SessionToken = "not-a-token",
+                            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeMilliseconds(),
+                            Sas = "000000"
+                        }
+                        : new PairingAcceptedPayload
+                        {
+                            PairingId = IssuedPairingId,
+                            SessionToken = IssuedToken,
+                            ExpiresAt = DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeMilliseconds(),
+                            Sas = PairingCrypto.ComputeSas(Convert.FromBase64String(IssuedToken))
+                        },
                     envelope.RequestId);
                 await EnqueueAsync(accepted, cancellationToken).ConfigureAwait(false);
             }

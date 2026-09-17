@@ -18,6 +18,7 @@ internal static class MfGuids
     public static readonly Guid FrameSize = new("1652c33d-d6b2-4012-b834-72030849a37d");
     public static readonly Guid InterlaceMode = new("e2724bb8-e676-4806-b4b2-a8d6efb44ccd");
     public static readonly Guid DefaultStride = new("644b4e48-1e7b-4541-9eeb-d8678c3f1f9d");
+    public static readonly Guid CleanPoint = new("9cdf81f4-8da1-4581-b968-67187af63046");
 }
 
 [StructLayout(LayoutKind.Sequential)]

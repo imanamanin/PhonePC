@@ -1,9 +1,23 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
 }
 
-kotlin {
-    jvmToolchain(17)
+android {
+    namespace = "com.phonecontrol.agent.domain"
+    compileSdk = 35
+    buildToolsVersion = "36.0.0"
+    defaultConfig {
+        minSdk = 26
+        consumerProguardFiles("consumer-rules.pro")
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {

@@ -5,6 +5,7 @@ namespace PhoneControl.Application;
 public sealed class ConnectionOptions
 {
     public TimeSpan HandshakeTimeout { get; init; } = TimeSpan.FromMilliseconds(ProtocolPorts.DefaultTimeoutMs);
+    public TimeSpan TcpConnectTimeout { get; init; } = TimeSpan.FromSeconds(3);
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromMilliseconds(ProtocolPorts.HeartbeatIntervalMs);
     public TimeSpan HeartbeatTimeout { get; init; } = TimeSpan.FromMilliseconds(ProtocolPorts.DefaultTimeoutMs);
     public int MaxReconnectAttempts { get; init; } = 8;

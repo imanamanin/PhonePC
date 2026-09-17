@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using PhoneControl.Adb;
 using PhoneControl.Application;
+using PhoneControl.Desktop.Audio;
 using PhoneControl.Desktop.Decoding;
 using PhoneControl.Desktop.ViewModels;
 using PhoneControl.Domain;
@@ -22,6 +23,24 @@ public partial class App : WpfApplication
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        DispatcherUnhandledException += (_, args) =>
+        {
+            Log.Warning("Dispatcher exception {Type}", args.Exception.GetType().Name);
+            args.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception ex)
+            {
+                Log.Warning("Domain exception {Type}", ex.GetType().Name);
+            }
+        };
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Log.Warning("Task exception {Type}", args.Exception.GetType().Name);
+            args.SetObserved();
+        };
 
         var logDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -81,11 +100,13 @@ public partial class App : WpfApplication
         services.AddSingleton<ConnectionManager>();
         services.AddSingleton<IRemoteInputClient, RemoteInputClient>();
         services.AddSingleton<PointerInputController>();
+        services.AddSingleton<IAudioPlayer, NAudioPcmPlayer>();
         services.AddSingleton<VideoSession>();
+        services.AddSingleton<AudioSession>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MainWindow>();
         _services = services.BuildServiceProvider();
-
+        _services.GetRequiredService<AudioSession>();
         var window = _services.GetRequiredService<MainWindow>();
         window.Show();
     }
@@ -94,6 +115,7 @@ public partial class App : WpfApplication
     {
         if (_services is not null)
         {
+            _services.GetRequiredService<AudioSession>().DisposeAsync().AsTask().GetAwaiter().GetResult();
             _services.GetRequiredService<VideoSession>().DisposeAsync().AsTask().GetAwaiter().GetResult();
             _services.GetRequiredService<ConnectionManager>().DisposeAsync().AsTask().GetAwaiter().GetResult();
             _services.Dispose();
