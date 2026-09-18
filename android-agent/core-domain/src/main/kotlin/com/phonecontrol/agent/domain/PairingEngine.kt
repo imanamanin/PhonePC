@@ -82,6 +82,24 @@ class PairingEngine(
         PinSubmitResult.Accepted(pairing, lastSas!!)
     }
 
+    fun autoGrant(): TrustedPairing = synchronized(gate) {
+        val current = trusted
+        if (current != null && current.expiresAtEpochMs > nowMs()) {
+            return@synchronized current
+        }
+        val token = randomBytes(32)
+        val pairing = TrustedPairing(
+            pairingId = UUID.randomUUID().toString(),
+            sessionToken = token,
+            expiresAtEpochMs = nowMs() + tokenTtlMs
+        )
+        trusted = pairing
+        lastSas = sas(token)
+        challenge = null
+        attempts = 0
+        pairing
+    }
+
     fun validateToken(pairingId: String?, tokenB64: String?): Boolean = synchronized(gate) {
         val current = trusted ?: return@synchronized false
         if (current.expiresAtEpochMs <= nowMs()) {

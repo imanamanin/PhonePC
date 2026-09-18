@@ -14,7 +14,10 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import com.phonecontrol.agent.databinding.ActivityMainBinding
+import com.phonecontrol.agent.domain.LocalAddresses
+import com.phonecontrol.agent.network.BrowserBridgeServer
 import com.phonecontrol.agent.network.ControlServer
+import com.phonecontrol.agent.network.WifiStaAddress
 import com.phonecontrol.agent.screencapture.ScreenCaptureController
 import com.phonecontrol.agent.screencapture.ScreenCaptureService
 
@@ -61,6 +64,7 @@ class MainActivity : AppCompatActivity() {
             AgentApp.runtime?.engine?.ensureChallenge()
             renderStatus()
         }
+        binding.refreshPinButton.visibility = android.view.View.GONE
         binding.unpairButton.setOnClickListener {
             AgentApp.runtime?.engine?.clear()
             AgentApp.runtime?.store?.clear()
@@ -111,16 +115,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderStatus() {
-        val engine = AgentApp.runtime?.engine
-        val pin = engine?.displayedPin()
-        val sas = engine?.lastSas
-        binding.pinText.text = pin ?: "------"
-        binding.sasText.text = when {
-            sas != null -> getString(R.string.status_sas, sas)
-            engine?.isPaired() == true -> getString(R.string.status_paired)
-            else -> getString(R.string.status_show_pin)
+        val wifi = WifiStaAddress.ipv4(this)
+        val usb = LocalAddresses.usb().firstOrNull()
+        binding.pinText.text = wifi ?: getString(R.string.status_wifi_off)
+        binding.sasText.text = buildString {
+            append(getString(R.string.status_wifi_label))
+            append(wifi ?: "—")
+            append("\n")
+            append(getString(R.string.status_usb_label))
+            append(usb ?: "—")
         }
-        binding.listenText.text = if (ControlServer.instance.isListening()) {
+        binding.listenText.text = if (ControlServer.instance.isListening() || BrowserBridgeServer.instance.isListening()) {
             getString(R.string.status_listening)
         } else {
             getString(R.string.status_offline)

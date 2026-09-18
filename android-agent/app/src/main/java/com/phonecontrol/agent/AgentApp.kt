@@ -15,6 +15,7 @@ import com.phonecontrol.agent.domain.TouchCommand
 import com.phonecontrol.agent.domain.TrustedPairing
 import com.phonecontrol.agent.network.BrowserBridgeServer
 import com.phonecontrol.agent.network.ControlServer
+import com.phonecontrol.agent.network.LanAdvertiser
 import com.phonecontrol.agent.screencapture.CaptureSettings
 import com.phonecontrol.agent.screencapture.ScreenCaptureController
 import com.phonecontrol.agent.screencapture.ScreenCaptureService
@@ -44,6 +45,7 @@ class AgentApp : Application() {
             val sink = AppCommandSink(app, rt)
             ControlServer.instance.start(sink)
             BrowserBridgeServer.instance.start(sink)
+            LanAdvertiser.instance.start(app)
         }
 
         fun startControlListener() {
@@ -74,6 +76,8 @@ private class AppCommandSink(
 
     override fun evaluateHello(pairingId: String?, sessionToken: String?): Boolean =
         runtime.engine.validateToken(pairingId, sessionToken)
+
+    override fun autoGrant(): TrustedPairing = runtime.engine.autoGrant()
 
     override fun submitPin(pin: String): PinSubmitResult = runtime.engine.submitPin(pin)
 

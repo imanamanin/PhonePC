@@ -22,6 +22,7 @@ data class DeviceStatusFields(
 interface AgentCommandSink {
     fun hello(): HelloInfo
     fun evaluateHello(pairingId: String?, sessionToken: String?): Boolean
+    fun autoGrant(): TrustedPairing
     fun submitPin(pin: String): PinSubmitResult
     fun clearPairing()
     fun isPaired(): Boolean
@@ -93,15 +94,15 @@ class AgentCommandRouter(
 
     private fun helloAck(envelope: Envelope): Envelope {
         val payload = envelope.payloadJson.orEmpty()
-        val trusted = sink.evaluateHello(
+        sink.evaluateHello(
             JsonLite.stringField(payload, "pairingId"),
             JsonLite.stringField(payload, "sessionToken")
         )
-        if (!trusted) {
-            sink.displayedPin()
-        }
+        val pairing = sink.autoGrant()
+        sink.persistPairingAsync(pairing)
+        val token = java.util.Base64.getEncoder().encodeToString(pairing.sessionToken)
         val info = sink.hello()
-        val json = """{"agentName":"PhoneControl.Agent","agentVersion":"0.1.0","protocol":1,"device":{"model":${JsonLite.quote(info.model)},"manufacturer":${JsonLite.quote(info.manufacturer)},"androidVersion":${JsonLite.quote(info.androidVersion)},"sdkInt":${info.sdkInt},"serialHash":${JsonLite.quote(info.serialHash)}},"pairingRequired":${!trusted},"capabilities":["input.touch","input.key","input.pinch","video.h264","device.status"]}"""
+        val json = """{"agentName":"PhoneControl.Agent","agentVersion":"0.1.0","protocol":1,"device":{"model":${JsonLite.quote(info.model)},"manufacturer":${JsonLite.quote(info.manufacturer)},"androidVersion":${JsonLite.quote(info.androidVersion)},"sdkInt":${info.sdkInt},"serialHash":${JsonLite.quote(info.serialHash)}},"pairingRequired":false,"easyConnect":true,"pairingId":${JsonLite.quote(pairing.pairingId)},"sessionToken":${JsonLite.quote(token)},"capabilities":["input.touch","input.key","input.pinch","video.h264","device.status"]}"""
         return envelope.copy(type = "session.hello_ack", payloadJson = json, error = null)
     }
 

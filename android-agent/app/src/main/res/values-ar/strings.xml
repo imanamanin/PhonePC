@@ -1,6 +1,12 @@
 <resources>
     <string name="app_name">التحكم بالهاتف</string>
-    <string name="hint_short">أبقِ USB tethering قيد التشغيل. أدخل الرمز في Windows ثم ابدأ الالتقاط.</string>
+    <string name="hint_short">لوصل Wi-Fi انضم لنفس الراوتر. يظهر عنوان Wi-Fi أدناه. USB يعمل بشكل منفصل.</string>
+    <string name="status_wifi_off">Wi-Fi مغلق</string>
+    <string name="status_wifi_label">Wi-Fi </string>
+    <string name="status_usb_label">USB </string>
+    <string name="status_easy_title">جاهز</string>
+    <string name="status_easy_connect">يتصل الكمبيوتر عبر USB أو Wi-Fi بنقرة واحدة.</string>
+    <string name="status_listening_lan">يستمع · %1$s</string>
     <string name="start_capture">بدء الالتقاط</string>
     <string name="stop_capture">إيقاف الالتقاط</string>
     <string name="refresh_pairing">رمز جديد</string>

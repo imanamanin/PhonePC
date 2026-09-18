@@ -1,5 +1,5 @@
 import { PcmPlayer } from "./audio.js";
-import { findAgent, normalizeHost } from "./discover.js";
+import { findAgent } from "./discover.js";
 import { PointerInput } from "./input.js";
 import {
   BROWSER_PORT,
@@ -11,7 +11,6 @@ import {
 } from "./protocol.js";
 
 const hostInput = document.getElementById("host");
-const pinInput = document.getElementById("pin");
 const statusEl = document.getElementById("status");
 const hintEl = document.getElementById("hint");
 const canvas = document.getElementById("screen");
@@ -20,6 +19,9 @@ const stage = document.getElementById("stage");
 const settingsEl = document.getElementById("settings");
 const settingsToggle = document.getElementById("settings-toggle");
 const popoutBtn = document.getElementById("popout");
+const usbBtn = document.getElementById("connect-usb");
+const wifiBtn = document.getElementById("connect-wifi");
+const scanProgress = document.getElementById("scan-progress");
 const detached = new URLSearchParams(location.search).get("mode") === "window";
 const player = new PcmPlayer();
 const input = new PointerInput(sendCommand);
@@ -29,8 +31,11 @@ let pingTimer = 0;
 let statusTimer = 0;
 let pairing = { pairingId: null, sessionToken: null };
 let frameSize = { width: 0, height: 0 };
+let connecting = false;
 
-restore();
+restore().then((mode) => {
+  if (mode) connect(mode);
+});
 if (detached) {
   document.body.classList.add("window");
   popoutBtn.hidden = true;
@@ -38,12 +43,8 @@ if (detached) {
 
 settingsToggle.addEventListener("click", () => setSettingsOpen(!settingsEl.classList.contains("open")));
 popoutBtn.addEventListener("click", () => chrome.runtime.sendMessage({ type: "open-window" }));
-document.getElementById("find").addEventListener("click", () => discover(true));
-document.getElementById("connect").addEventListener("click", () => connect());
-document.getElementById("pair").addEventListener("click", () => submitPin());
-pinInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") submitPin();
-});
+usbBtn.addEventListener("click", () => connect("usb"));
+wifiBtn.addEventListener("click", () => connect("wifi"));
 
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 canvas.addEventListener("pointerdown", (event) => {
@@ -64,71 +65,84 @@ canvas.addEventListener("keydown", (event) => {
   }
 });
 
-discover(false);
-
 async function restore() {
-  const saved = await chrome.storage.local.get(["host", "pairingId", "sessionToken"]);
+  const saved = await chrome.storage.local.get(["host", "pairingId", "sessionToken", "connectMode"]);
   if (saved.host) hostInput.value = saved.host;
   pairing = {
     pairingId: saved.pairingId || null,
     sessionToken: saved.sessionToken || null
   };
+  return saved.connectMode === "wifi" || saved.connectMode === "usb" ? saved.connectMode : null;
 }
 
-async function discover(manual) {
-  setStatus(manual ? "در حال جستجو روی USB tether…" : "در حال پیدا کردن گوشی…");
-  const found = await findAgent(hostInput.value);
-  if (!found.length) {
-    setStatus("گوشی پیدا نشد. IP را دستی وارد کنید.", true);
-    return;
-  }
-  hostInput.value = found[0].host;
-  await chrome.storage.local.set({ host: found[0].host });
-  setStatus(`پیدا شد: ${found[0].host}`);
-  if (manual) connect();
-}
-
-async function connect() {
-  const host = normalizeHost(hostInput.value);
-  if (!host) {
-    setStatus("ابتدا IP گوشی را وارد کنید.", true);
-    return;
-  }
-  await player.unlock();
-  closeSocket();
-  await chrome.storage.local.set({ host });
-  setStatus(`اتصال به ${host}…`);
-  const ws = new WebSocket(`ws://${host}:${BROWSER_PORT}/ws`);
-  ws.binaryType = "arraybuffer";
-  socket = ws;
-  ws.addEventListener("open", () => {
-    setStatus("متصل شد. در حال pairing…");
-    sendCommand("session.hello", {
-      pairingId: pairing.pairingId,
-      sessionToken: pairing.sessionToken
+async function connect(mode) {
+  if (connecting) return;
+  connecting = true;
+  usbBtn.disabled = true;
+  wifiBtn.disabled = true;
+  const via = mode === "wifi" ? "wifi" : "usb";
+  try {
+    await player.unlock();
+    setStatus(via === "wifi" ? "جستجو روی وای‌فای…" : "جستجو روی USB tether…", true);
+    scanProgress.textContent = via === "wifi" ? "شبکه وای‌فای کامپیوتر اسکن می‌شود…" : "";
+    const found = await findAgent(hostInput.value, {
+      mode: via,
+      onProgress: ({ host, scanned, total }) => {
+        scanProgress.textContent = `اسکن ${host} (${scanned}/${total})`;
+        setStatus(via === "wifi" ? `وای‌فای: ${host}` : `USB: ${host}`);
+      }
     });
-    pingTimer = window.setInterval(() => sendCommand("session.ping", { t: Date.now() }), 5000);
-    statusTimer = window.setInterval(() => sendCommand("device.status", {}), 4000);
-  });
-  ws.addEventListener("message", (event) => {
-    if (typeof event.data === "string") {
-      onJson(JSON.parse(event.data));
+    if (!found.length) {
+      scanProgress.textContent = "";
+      setStatus(
+        via === "wifi"
+          ? "وای‌فای پیدا نشد. IP روی گوشی را اینجا بنویسید. روتر نباید Client Isolation داشته باشد."
+          : "USB پیدا نشد. تترینگ را روشن کنید.",
+        true
+      );
       return;
     }
-    onBinary(new Uint8Array(event.data));
-  });
-  ws.addEventListener("close", () => {
-    setStatus("قطع شد. دوباره اتصال بزنید.", true);
-    closeSocket(false);
-  });
-  ws.addEventListener("error", () => setStatus("خطای اتصال. tether و اپ گوشی را چک کنید.", true));
+    const host = found[0].host;
+    hostInput.value = host;
+    closeSocket();
+    await chrome.storage.local.set({ host, connectMode: via });
+    scanProgress.textContent = "";
+    setStatus(`اتصال ${via === "wifi" ? "Wi-Fi" : "USB"} به ${host}…`);
+    const ws = new WebSocket(`ws://${host}:${BROWSER_PORT}/ws`);
+    ws.binaryType = "arraybuffer";
+    socket = ws;
+    ws.addEventListener("open", () => {
+      setStatus(via === "wifi" ? `وای‌فای وصل شد · ${host}` : `USB وصل شد · ${host}`);
+      sendCommand("session.hello", {
+        pairingId: pairing.pairingId,
+        sessionToken: pairing.sessionToken
+      });
+      pingTimer = window.setInterval(() => sendCommand("session.ping", { t: Date.now() }), 5000);
+      statusTimer = window.setInterval(() => sendCommand("device.status", {}), 4000);
+    });
+    ws.addEventListener("message", (event) => {
+      if (typeof event.data === "string") {
+        onJson(JSON.parse(event.data));
+        return;
+      }
+      onBinary(new Uint8Array(event.data));
+    });
+    ws.addEventListener("close", () => {
+      setStatus("قطع شد. دوباره USB یا Wi-Fi را بزنید.", true);
+      closeSocket(false);
+    });
+    ws.addEventListener("error", () => setStatus("خطای اتصال.", true));
+  } finally {
+    connecting = false;
+    usbBtn.disabled = false;
+    wifiBtn.disabled = false;
+  }
 }
 
 function onJson(msg) {
   if (msg.error) {
     if (msg.error.code === "UNPAIRED") {
-      setStatus("PIN روی گوشی را اینجا وارد کنید.", true);
-      pinInput.focus();
+      setStatus("اپ گوشی را به‌روز کنید تا اتصال بدون PIN کار کند.", true);
       return;
     }
     if (msg.error.code === "PERMISSION_DENIED") {
@@ -139,11 +153,15 @@ function onJson(msg) {
     return;
   }
   if (msg.type === "session.hello_ack") {
-    const required = msg.payload?.pairingRequired;
-    if (required) {
-      setStatus("PIN شش‌رقمی گوشی را وارد کنید.", true);
-      pinInput.focus();
-      return;
+    if (msg.payload?.pairingId && msg.payload?.sessionToken) {
+      pairing = {
+        pairingId: msg.payload.pairingId,
+        sessionToken: msg.payload.sessionToken
+      };
+      chrome.storage.local.set({
+        pairingId: pairing.pairingId,
+        sessionToken: pairing.sessionToken
+      });
     }
     afterPaired();
     return;
@@ -157,13 +175,7 @@ function onJson(msg) {
       pairingId: pairing.pairingId,
       sessionToken: pairing.sessionToken
     });
-    const sas = msg.payload?.sas;
-    setStatus(sas ? `جفت شد. SAS: ${sas}` : "جفت شد.");
     afterPaired();
-    return;
-  }
-  if (msg.type === "pairing.rejected" || msg.type === "pairing.expired") {
-    setStatus("PIN رد شد. دوباره از روی گوشی بخوانید.", true);
     return;
   }
   if (msg.type === "device.status" || msg.type === "state.update") {
@@ -223,16 +235,6 @@ function onBinary(bytes) {
 function sendCommand(type, payload) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
   socket.send(JSON.stringify(envelope(type, payload)));
-}
-
-function submitPin() {
-  const pin = pinInput.value.trim();
-  if (!/^\d{4,8}$/.test(pin)) {
-    setStatus("PIN را کامل وارد کنید.", true);
-    return;
-  }
-  sendCommand("pairing.submit", { pin });
-  pinInput.value = "";
 }
 
 function closeSocket(close = true) {

@@ -1,6 +1,12 @@
 <resources>
     <string name="app_name">کنترل گوشی</string>
-    <string name="hint_short">تترینگ USB روشن باشد. PIN را در ویندوز بزن، بعد تصویر را شروع کن.</string>
+    <string name="hint_short">برای وای‌فای هر دو را به همان روتر وصل کنید. IP وای‌فای پایین دیده می‌شود. USB جداگانه کار می‌کند.</string>
+    <string name="status_wifi_off">وای‌فای خاموش</string>
+    <string name="status_wifi_label">وای‌فای </string>
+    <string name="status_usb_label">USB </string>
+    <string name="status_easy_title">آماده</string>
+    <string name="status_easy_connect">کامپیوتر با یک اتصال از USB یا وای‌فای وصل می‌شود.</string>
+    <string name="status_listening_lan">در حال گوش دادن · %1$s</string>
     <string name="start_capture">شروع تصویر</string>
     <string name="stop_capture">توقف تصویر</string>
     <string name="refresh_pairing">PIN جدید</string>

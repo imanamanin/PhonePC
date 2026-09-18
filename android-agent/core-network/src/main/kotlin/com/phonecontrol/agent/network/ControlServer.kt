@@ -4,6 +4,7 @@ import com.phonecontrol.agent.domain.AgentCommandRouter
 import com.phonecontrol.agent.domain.AgentCommandSink
 import com.phonecontrol.agent.domain.JsonLite
 import com.phonecontrol.agent.domain.LengthPrefixed
+import com.phonecontrol.agent.domain.LocalAddresses
 import com.phonecontrol.agent.domain.ProtocolError
 import com.phonecontrol.agent.domain.ProtocolPorts
 import java.net.InetSocketAddress
@@ -28,7 +29,7 @@ class ControlServer(
     fun describe(): String {
         val listen = if (isListening()) "listening" else "not-listening"
         val err = lastError?.let { " error=$it" } ?: ""
-        val ips = localIpv4().joinToString(",").ifEmpty { "no-ipv4" }
+        val ips = LocalAddresses.ipv4().joinToString(",").ifEmpty { "no-ipv4" }
         return "control=$controlPort screen=$screenPort $listen $ips$err"
     }
 
@@ -99,26 +100,6 @@ class ControlServer(
             }
             thread(name = "control-session", isDaemon = true) { session(client) }
         }
-    }
-
-    private fun localIpv4(): List<String> {
-        val found = ArrayList<String>()
-        try {
-            val ifaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return found
-            for (nic in ifaces) {
-                if (!nic.isUp || nic.isLoopback) {
-                    continue
-                }
-                for (addr in nic.inetAddresses) {
-                    if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
-                        found.add(addr.hostAddress)
-                    }
-                }
-            }
-        } catch (_: Exception) {
-            // Interface list is diagnostic only.
-        }
-        return found
     }
 
     private fun session(socket: Socket) {

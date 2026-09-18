@@ -139,7 +139,8 @@ class AgentCommandRouterTest {
         )
         assertEquals("session.hello_ack", result.type)
         assertEquals("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", result.requestId)
-        assertTrue(result.payloadJson!!.contains("\"pairingRequired\":true"))
+        assertTrue(result.payloadJson!!.contains("\"pairingRequired\":false"))
+        assertTrue(result.payloadJson!!.contains("\"easyConnect\":true"))
     }
 
     @Test
@@ -201,6 +202,13 @@ class WebSocketHandshakeTest {
 }
 
 class StreamHubTest {
+    @Test
+    fun classifiesUsbAndWifiIfaces() {
+        assertEquals("wifi", LanHost("192.168.1.20", "wlan0").kind)
+        assertEquals("usb", LanHost("192.168.42.129", "rndis0").kind)
+        assertEquals("usb", LanHost("10.1.1.1", "usb0").kind)
+    }
+
     @Test
     fun publishesLatestVideoAndAudio() {
         StreamHub.clear()
@@ -272,18 +280,33 @@ class PairingEngineTest {
         val token = java.util.Base64.getEncoder().encodeToString(accepted.pairing.sessionToken)
         assertFalse(engine.validateToken(accepted.pairing.pairingId, token))
     }
+
+    @Test
+    fun autoGrantPairsWithoutPin() {
+        val engine = PairingEngine(nowMs = { 1_000L }, randomBytes = { ByteArray(it) { 3 } })
+        val pairing = engine.autoGrant()
+        assertTrue(engine.isPaired())
+        val token = java.util.Base64.getEncoder().encodeToString(pairing.sessionToken)
+        assertTrue(engine.validateToken(pairing.pairingId, token))
+        assertEquals(pairing.pairingId, engine.autoGrant().pairingId)
+    }
 }
 
 private class FakeSink(
     private val granted: Boolean,
     private val inject: Boolean,
-    private val paired: Boolean = true
+    paired: Boolean = true
 ) : AgentCommandSink {
+    private var linked = paired
     override fun hello() = HelloInfo("Pixel", "Google", "14", 34, "none")
-    override fun evaluateHello(pairingId: String?, sessionToken: String?) = paired
+    override fun evaluateHello(pairingId: String?, sessionToken: String?) = linked
+    override fun autoGrant(): TrustedPairing {
+        linked = true
+        return TrustedPairing("auto", ByteArray(8) { 1 }, Long.MAX_VALUE)
+    }
     override fun submitPin(pin: String) = PinSubmitResult.Rejected
     override fun clearPairing() = Unit
-    override fun isPaired() = paired
+    override fun isPaired() = linked
     override fun displayedPin() = "123456"
     override fun displayedSas() = null
     override fun deviceStatus() = DeviceStatusFields(80, true, "usb_tether")

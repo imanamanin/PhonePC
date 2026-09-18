@@ -14,19 +14,15 @@
       <button id="popout" type="button" title="پنجره جدا">⧉</button>
     </div>
     <aside id="settings" class="open">
-      <label class="host-field">
-        <span>IP گوشی</span>
-        <input id="host" type="text" placeholder="مثلاً 10.242.187.225" autocomplete="off" />
-      </label>
-      <div class="row">
-        <button id="find" type="button">پیدا کردن</button>
-        <button id="connect" type="button">اتصال</button>
+      <div class="mode-row">
+        <button id="connect-usb" type="button">اتصال USB</button>
+        <button id="connect-wifi" type="button">اتصال Wi-Fi</button>
       </div>
-      <label class="pin-field">
-        <span>PIN</span>
-        <input id="pin" type="text" inputmode="numeric" maxlength="6" autocomplete="off" />
+      <p id="scan-progress"></p>
+      <label class="host-field">
+        <span>IP وای‌فای گوشی (اگر پیدا نشد)</span>
+        <input id="host" type="text" placeholder="همان عددی که روی گوشی نوشته شده" autocomplete="off" />
       </label>
-      <button id="pair" type="button">جفت‌سازی</button>
     </aside>
     <main>
       <div class="phone">
@@ -36,7 +32,7 @@
           <div class="island" aria-hidden="true"></div>
           <div id="stage" class="phone-screen">
             <canvas id="screen" tabindex="0"></canvas>
-            <p id="hint">USB tethering را روشن کنید، اپ گوشی را باز بگذارید، Capture و Accessibility را فعال کنید.</p>
+            <p id="hint">USB یا Wi-Fi را جدا بزنید. برای وای‌فای هر دو باید به همان روتر وصل باشند.</p>
           </div>
           <div class="home-bar" aria-hidden="true"></div>
         </div>

@@ -3,6 +3,7 @@ package com.phonecontrol.agent.network
 import com.phonecontrol.agent.domain.AgentCommandRouter
 import com.phonecontrol.agent.domain.AgentCommandSink
 import com.phonecontrol.agent.domain.JsonLite
+import com.phonecontrol.agent.domain.LocalAddresses
 import com.phonecontrol.agent.domain.ProtocolError
 import com.phonecontrol.agent.domain.ProtocolPorts
 import com.phonecontrol.agent.domain.StreamHub
@@ -213,26 +214,10 @@ class BrowserBridgeServer(
     }
 
     private fun healthJson(): String {
-        val ips = localIpv4().joinToString(",") { "\"$it\"" }
-        return """{"ok":true,"name":"PC Phone","protocol":1,"browserPort":$port,"controlPort":${ProtocolPorts.CONTROL},"screenPort":${ProtocolPorts.SCREEN},"ipv4":[$ips]}"""
-    }
-
-    private fun localIpv4(): List<String> {
-        val found = ArrayList<String>()
-        try {
-            val ifaces = java.net.NetworkInterface.getNetworkInterfaces() ?: return found
-            for (nic in ifaces) {
-                if (!nic.isUp || nic.isLoopback) continue
-                for (addr in nic.inetAddresses) {
-                    if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
-                        found.add(addr.hostAddress)
-                    }
-                }
-            }
-        } catch (_: Exception) {
-            // Diagnostic only.
-        }
-        return found
+        val ips = LocalAddresses.ipv4().joinToString(",") { "\"$it\"" }
+        val wifi = LocalAddresses.wifi().firstOrNull()?.let { "\"$it\"" } ?: "null"
+        val usb = LocalAddresses.usb().joinToString(",") { "\"$it\"" }
+        return """{"ok":true,"name":"PC Phone","protocol":1,"easyConnect":true,"browserPort":$port,"controlPort":${ProtocolPorts.CONTROL},"screenPort":${ProtocolPorts.SCREEN},"wifi":$wifi,"usb":[$usb],"ipv4":[$ips]}"""
     }
 
     private fun readHttp(input: InputStream): HttpRequest? {
