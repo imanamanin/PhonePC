@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PC Phone",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Show and control your Android phone in a Chrome side panel over USB or Wi-Fi.",
   "action": {
     "default_title": "PC Phone",
@@ -12,13 +12,15 @@
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "side_panel": {
     "default_path": "viewer.html"
   },
   "permissions": ["storage", "sidePanel", "system.network"],
   "host_permissions": ["<all_urls>"],
+  "optional_host_permissions": ["<all_urls>"],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

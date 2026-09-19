@@ -1,4 +1,4 @@
-importScripts("scan.js");
+import { Scan } from "./scan.js";
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {
   // Older Chrome without side panel still loads the viewer from the action.
@@ -49,6 +49,7 @@ function attachScan(port) {
   port.onMessage.addListener((message) => {
     if (message?.type !== "start") return;
     (async () => {
+      try {
       const mode = message.mode === "wifi" ? "wifi" : "usb";
       const local = await Scan.collectLocal(message.local || [], ["pcphone.local", "pc-phone.local"]);
       const wifiIfaces = local.filter((item) => Scan.isWifiIface(item));
@@ -94,6 +95,16 @@ function attachScan(port) {
         });
       } catch {
         // Viewer closed.
+      }
+      } catch (error) {
+        try {
+          port.postMessage({
+            type: "done",
+            lastError: error.message || String(error)
+          });
+        } catch {
+          // Viewer closed.
+        }
       }
     })();
   });

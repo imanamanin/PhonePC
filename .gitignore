@@ -32,6 +32,12 @@ captures/
 *.class
 .externalNativeBuild/
 
+# User-facing install packages (APK + unpacked extension zips)
+!install/
+!install/**
+!install/*.apk
+!install/*.zip
+
 # Secrets and pairing material
 *.pfx
 *.p12

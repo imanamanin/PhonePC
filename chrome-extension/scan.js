@@ -1,4 +1,4 @@
-globalThis.Scan = {
+export const Scan = {
   PORT: 17893,
   USB_HINTS: ["192.168.42.129", "192.168.137.1", "192.168.43.1"],
   USB_PREFIXES: ["192.168.42", "192.168.137", "192.168.43"],
@@ -76,8 +76,9 @@ globalThis.Scan = {
     if (mode === "usb") {
       this.USB_HINTS.forEach(add);
       const usb = ifaces.filter((item) => this.looksUsb(item));
-      const usable = usb.length ? usb : ifaces.filter((item) => !this.isWsl(item.address));
-      const scan = usable.length ? usable : ifaces;
+      const extras = ifaces.filter((item) => !this.isWsl(item.address));
+      const scan = usb.length ? usb : (extras.length ? extras : ifaces);
+      for (const iface of extras) addHot(iface.address);
       for (const iface of scan) addHot(iface.address);
       for (const prefix of this.USB_PREFIXES) addHot(`${prefix}.1`);
       for (const iface of scan) addSubnet(iface.address, iface.address);
@@ -121,9 +122,7 @@ globalThis.Scan = {
     for (const item of await this.chromeIfaces()) {
       addIface(item.name, item.address, item.gateway);
     }
-    if (byIp.size === 0) {
-      await this.harvestIce(addIp, addName);
-    }
+    await this.harvestIce(addIp, addName);
     for (const name of pending) {
       await this.resolveName(name, addIp);
     }
@@ -178,21 +177,29 @@ globalThis.Scan = {
 
   async chromeIfaces() {
     const api = globalThis.chrome?.system?.network?.getNetworkInterfaces;
-    if (!api) return [];
+    if (!api) {
+      this.lastError = "system.network missing";
+      return [];
+    }
     try {
-      let items;
-      const promised = api();
-      if (promised && typeof promised.then === "function") {
-        items = await promised;
-      } else {
-        items = await new Promise((resolve) => {
-          try {
-            api((list) => resolve(list || []));
-          } catch {
-            resolve([]);
+      const items = await new Promise((resolve) => {
+        let done = false;
+        const finish = (list) => {
+          if (done) return;
+          done = true;
+          resolve(list || []);
+        };
+        try {
+          const maybe = api(finish);
+          if (maybe && typeof maybe.then === "function") {
+            maybe.then(finish).catch(() => finish([]));
           }
-        });
-      }
+        } catch (error) {
+          this.lastError = `ifaces: ${error.message || error}`;
+          finish([]);
+        }
+        setTimeout(() => finish([]), 1500);
+      });
       return (items || [])
         .filter((item) => item?.address)
         .map((item) => ({
@@ -262,22 +269,26 @@ globalThis.Scan = {
   },
 
   async probeFetch(host) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 900);
-    try {
-      const res = await fetch(`http://${host}:${this.PORT}/health`, {
-        cache: "no-store",
-        signal: ctrl.signal
-      });
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json?.ok ? { host, ...json } : null;
-    } catch (error) {
-      this.lastError = `${host}: ${error.message || error}`;
-      return null;
-    } finally {
-      clearTimeout(timer);
+    const attempts = [{}, { targetAddressSpace: "local" }, { targetAddressSpace: "private" }];
+    for (const extra of attempts) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 900);
+      try {
+        const res = await fetch(`http://${host}:${this.PORT}/health`, {
+          cache: "no-store",
+          signal: ctrl.signal,
+          ...extra
+        });
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (json?.ok) return { host, ...json };
+      } catch (error) {
+        this.lastError = `${host}: ${error.message || error}`;
+      } finally {
+        clearTimeout(timer);
+      }
     }
+    return null;
   },
 
   probeWs(host) {
