@@ -1,3 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.PhoneControlAgent" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+    <style name="Theme.PhoneControlAgent" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="colorPrimary">@color/pcphone_turquoise</item>
+        <item name="colorPrimaryVariant">@color/pcphone_persian_blue</item>
+        <item name="colorSecondary">@color/pcphone_orange</item>
+        <item name="colorOnPrimary">@color/pcphone_navy</item>
+        <item name="colorOnSecondary">@color/pcphone_navy</item>
+        <item name="colorSurface">@color/pcphone_surface</item>
+        <item name="colorOnSurface">@color/pcphone_text</item>
+        <item name="android:colorBackground">@color/pcphone_navy</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/pcphone_navy</item>
+        <item name="android:windowBackground">@color/pcphone_navy</item>
+        <item name="android:textColorPrimary">@color/pcphone_text</item>
+        <item name="android:textColorSecondary">@color/pcphone_text_muted</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="materialButtonStyle">@style/Widget.PcPhone.Button.Secondary</item>
+        <item name="materialCardViewStyle">@style/Widget.PcPhone.Card</item>
+        <item name="colorControlActivated">@color/pcphone_turquoise</item>
+    </style>
 </resources>

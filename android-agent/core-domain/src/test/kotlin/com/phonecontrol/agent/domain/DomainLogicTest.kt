@@ -179,6 +179,20 @@ class AgentCommandRouterTest {
         )
         assertEquals(null, result.error)
     }
+
+    @Test
+    fun fileOfferWhenUnpairedIsRejected() {
+        val router = AgentCommandRouter(FakeSink(granted = true, inject = true, paired = false))
+        val result = router.handle(
+            Envelope(
+                type = "file.offer",
+                requestId = "11111111-1111-1111-1111-111111111111",
+                timestamp = 0,
+                payloadJson = """{"transferId":"t1","name":"a.txt","size":1,"direction":"to_phone"}"""
+            )
+        )
+        assertEquals("UNPAIRED", result.error?.code)
+    }
 }
 
 class EditorTextTest {
@@ -316,4 +330,14 @@ private class FakeSink(
     override fun injectTouch(command: TouchCommand) = inject
     override fun injectKey(key: String) = inject
     override fun injectText(text: String) = inject
+}
+
+class FileNamesTest {
+    @Test
+    fun stripsPathAndKeepsSafeChars() {
+        assertEquals("photo.jpg", FileNames.sanitize("..\\Windows\\photo.jpg"))
+        assertEquals("my notes.txt", FileNames.sanitize("my notes.txt"))
+        assertEquals("a_b.txt", FileNames.sanitize("a*b.txt"))
+        assertEquals("file", FileNames.sanitize("///"))
+    }
 }

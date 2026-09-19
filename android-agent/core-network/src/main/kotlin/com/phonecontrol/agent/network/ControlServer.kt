@@ -2,6 +2,8 @@ package com.phonecontrol.agent.network
 
 import com.phonecontrol.agent.domain.AgentCommandRouter
 import com.phonecontrol.agent.domain.AgentCommandSink
+import com.phonecontrol.agent.domain.ClientPresence
+import com.phonecontrol.agent.domain.ControlPush
 import com.phonecontrol.agent.domain.JsonLite
 import com.phonecontrol.agent.domain.LengthPrefixed
 import com.phonecontrol.agent.domain.LocalAddresses
@@ -103,41 +105,63 @@ class ControlServer(
     }
 
     private fun session(socket: Socket) {
-        socket.use { client ->
-            val input = client.getInputStream()
-            val output = client.getOutputStream()
-            while (running.get()) {
-                val body = try {
-                    LengthPrefixed.read(input, ProtocolPorts.MAX_JSON_BYTES)
-                } catch (_: Exception) {
-                    break
-                }
-                val envelope = try {
-                    JsonLite.parseEnvelope(body.decodeToString())
-                } catch (_: Exception) {
-                    continue
-                }
-                val reply = try {
-                    router?.handle(envelope) ?: envelope
-                } catch (_: Exception) {
-                    envelope.copy(
-                        error = ProtocolError(
-                            "INTERNAL",
-                            "handler failed",
-                            retryable = true
+        ClientPresence.enter()
+        try {
+            socket.use { client ->
+                val input = client.getInputStream()
+                val output = client.getOutputStream()
+                val outLock = Any()
+                val push: (com.phonecontrol.agent.domain.Envelope) -> Unit = { envelope ->
+                    synchronized(outLock) {
+                        LengthPrefixed.write(
+                            output,
+                            JsonLite.encodeEnvelope(envelope).encodeToByteArray(),
+                            ProtocolPorts.MAX_JSON_BYTES
                         )
-                    )
+                    }
                 }
+                ControlPush.addListener(push)
                 try {
-                    LengthPrefixed.write(
-                        output,
-                        JsonLite.encodeEnvelope(reply).encodeToByteArray(),
-                        ProtocolPorts.MAX_JSON_BYTES
-                    )
-                } catch (_: Exception) {
-                    break
+                    while (running.get()) {
+                        val body = try {
+                            LengthPrefixed.read(input, ProtocolPorts.MAX_JSON_BYTES)
+                        } catch (_: Exception) {
+                            break
+                        }
+                        val envelope = try {
+                            JsonLite.parseEnvelope(body.decodeToString())
+                        } catch (_: Exception) {
+                            continue
+                        }
+                        val reply = try {
+                            router?.handle(envelope) ?: envelope
+                        } catch (_: Exception) {
+                            envelope.copy(
+                                error = ProtocolError(
+                                    "INTERNAL",
+                                    "handler failed",
+                                    retryable = true
+                                )
+                            )
+                        }
+                        try {
+                            synchronized(outLock) {
+                                LengthPrefixed.write(
+                                    output,
+                                    JsonLite.encodeEnvelope(reply).encodeToByteArray(),
+                                    ProtocolPorts.MAX_JSON_BYTES
+                                )
+                            }
+                        } catch (_: Exception) {
+                            break
+                        }
+                    }
+                } finally {
+                    ControlPush.removeListener(push)
                 }
             }
+        } finally {
+            ClientPresence.leave()
         }
     }
 

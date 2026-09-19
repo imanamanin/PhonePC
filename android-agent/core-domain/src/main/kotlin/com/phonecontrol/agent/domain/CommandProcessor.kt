@@ -43,6 +43,7 @@ object MessageTypes {
         "sms.received",
         "sms.send",
         "file.offer",
+        "file.chunk",
         "file.progress",
         "file.cancel",
         "file.complete",

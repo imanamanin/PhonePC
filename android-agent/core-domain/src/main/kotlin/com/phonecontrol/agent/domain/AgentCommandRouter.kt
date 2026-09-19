@@ -36,6 +36,7 @@ interface AgentCommandSink {
     fun injectTouch(command: TouchCommand): Boolean
     fun injectKey(key: String): Boolean
     fun injectText(text: String): Boolean = false
+    fun handleFile(envelope: Envelope): Envelope = envelope.copy(error = null)
 }
 
 class AgentCommandRouter(
@@ -85,6 +86,12 @@ class AgentCommandRouter(
             "input.touch" -> injectTouch(envelope)
             "input.pinch" -> injectPinch(envelope)
             "input.key" -> injectKey(envelope)
+            "file.offer",
+            "file.chunk",
+            "file.cancel",
+            "file.complete",
+            "file.progress",
+            "file.error" -> sink.handleFile(envelope)
             else -> ok(envelope)
         }
     }
@@ -102,7 +109,7 @@ class AgentCommandRouter(
         sink.persistPairingAsync(pairing)
         val token = java.util.Base64.getEncoder().encodeToString(pairing.sessionToken)
         val info = sink.hello()
-        val json = """{"agentName":"PhoneControl.Agent","agentVersion":"0.1.0","protocol":1,"device":{"model":${JsonLite.quote(info.model)},"manufacturer":${JsonLite.quote(info.manufacturer)},"androidVersion":${JsonLite.quote(info.androidVersion)},"sdkInt":${info.sdkInt},"serialHash":${JsonLite.quote(info.serialHash)}},"pairingRequired":false,"easyConnect":true,"pairingId":${JsonLite.quote(pairing.pairingId)},"sessionToken":${JsonLite.quote(token)},"capabilities":["input.touch","input.key","input.pinch","video.h264","device.status"]}"""
+        val json = """{"agentName":"PhoneControl.Agent","agentVersion":"0.1.0","protocol":1,"device":{"model":${JsonLite.quote(info.model)},"manufacturer":${JsonLite.quote(info.manufacturer)},"androidVersion":${JsonLite.quote(info.androidVersion)},"sdkInt":${info.sdkInt},"serialHash":${JsonLite.quote(info.serialHash)}},"pairingRequired":false,"easyConnect":true,"pairingId":${JsonLite.quote(pairing.pairingId)},"sessionToken":${JsonLite.quote(token)},"capabilities":["input.touch","input.key","input.pinch","video.h264","device.status","file.transfer"]}"""
         return envelope.copy(type = "session.hello_ack", payloadJson = json, error = null)
     }
 

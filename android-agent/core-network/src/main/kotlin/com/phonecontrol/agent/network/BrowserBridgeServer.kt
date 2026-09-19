@@ -2,6 +2,8 @@ package com.phonecontrol.agent.network
 
 import com.phonecontrol.agent.domain.AgentCommandRouter
 import com.phonecontrol.agent.domain.AgentCommandSink
+import com.phonecontrol.agent.domain.ClientPresence
+import com.phonecontrol.agent.domain.ControlPush
 import com.phonecontrol.agent.domain.JsonLite
 import com.phonecontrol.agent.domain.LocalAddresses
 import com.phonecontrol.agent.domain.ProtocolError
@@ -117,7 +119,12 @@ class BrowserBridgeServer(
                 val key = request.header("Sec-WebSocket-Key") ?: return
                 output.write(switchingProtocols(WebSocketHandshake.accept(key)))
                 output.flush()
-                websocket(client, input, output)
+                ClientPresence.enter()
+                try {
+                    websocket(client, input, output)
+                } finally {
+                    ClientPresence.leave()
+                }
                 return
             }
             if (request.method == "GET" && (request.path == "/" || request.path == "/health")) {
@@ -172,32 +179,40 @@ class BrowserBridgeServer(
                 }
             }
         }
-        while (running.get() && live.get()) {
-            val frame = try {
-                WebSocketFrames.read(input, ProtocolPorts.MAX_JSON_BYTES)
-            } catch (_: Exception) {
-                break
-            } ?: break
-            when (frame.opcode) {
-                WebSocketFrames.CLOSE -> {
-                    send(WebSocketFrames.CLOSE, ByteArray(0))
-                    break
-                }
-                WebSocketFrames.PING -> send(WebSocketFrames.PONG, frame.payload)
-                WebSocketFrames.PONG -> Unit
-                WebSocketFrames.TEXT -> {
-                    val reply = handleText(frame.payload.decodeToString())
-                    send(WebSocketFrames.TEXT, JsonLite.encodeEnvelope(reply).encodeToByteArray())
-                    maybeMedia()
-                }
-                else -> Unit
-            }
+        val push: (com.phonecontrol.agent.domain.Envelope) -> Unit = { envelope ->
+            send(WebSocketFrames.TEXT, JsonLite.encodeEnvelope(envelope).encodeToByteArray())
         }
-        live.set(false)
+        ControlPush.addListener(push)
         try {
-            socket.close()
-        } catch (_: Exception) {
-            // Already closed.
+            while (running.get() && live.get()) {
+                val frame = try {
+                    WebSocketFrames.read(input, ProtocolPorts.MAX_JSON_BYTES)
+                } catch (_: Exception) {
+                    break
+                } ?: break
+                when (frame.opcode) {
+                    WebSocketFrames.CLOSE -> {
+                        send(WebSocketFrames.CLOSE, ByteArray(0))
+                        break
+                    }
+                    WebSocketFrames.PING -> send(WebSocketFrames.PONG, frame.payload)
+                    WebSocketFrames.PONG -> Unit
+                    WebSocketFrames.TEXT -> {
+                        val reply = handleText(frame.payload.decodeToString())
+                        send(WebSocketFrames.TEXT, JsonLite.encodeEnvelope(reply).encodeToByteArray())
+                        maybeMedia()
+                    }
+                    else -> Unit
+                }
+            }
+        } finally {
+            ControlPush.removeListener(push)
+            live.set(false)
+            try {
+                socket.close()
+            } catch (_: Exception) {
+                // Already closed.
+            }
         }
     }
 

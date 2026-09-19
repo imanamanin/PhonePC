@@ -1,167 +1,274 @@
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:clipToPadding="false"
-    android:padding="0dp">
+    android:background="@drawable/bg_pcphone">
 
-    <LinearLayout
+    <ImageView
+        android:layout_width="@dimen/pc_pattern_size"
+        android:layout_height="@dimen/pc_pattern_size"
+        android:layout_gravity="end|top"
+        android:alpha="0.18"
+        android:contentDescription="@null"
+        android:importantForAccessibility="no"
+        android:padding="8dp"
+        android:src="@drawable/pc_pattern_star" />
+
+    <ScrollView
+        android:id="@+id/contentScroll"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="never">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:paddingStart="@dimen/pc_space_lg"
+            android:paddingEnd="@dimen/pc_space_lg"
+            android:paddingBottom="@dimen/pc_space_xl">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="@string/brand_name"
+                    android:src="@drawable/ic_pcphone_mark" />
+
+                <TextView
+                    android:id="@+id/titleText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/pc_space_sm"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="@string/app_name"
+                    android:textAppearance="@style/TextAppearance.PcPhone.Headline" />
+
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/langGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/langFa"
+                        style="@style/Widget.PcPhone.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="@dimen/pc_chip_height"
+                        android:text="@string/lang_fa" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/langEn"
+                        style="@style/Widget.PcPhone.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="@dimen/pc_chip_height"
+                        android:text="@string/lang_en" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/langAr"
+                        style="@style/Widget.PcPhone.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="@dimen/pc_chip_height"
+                        android:text="@string/lang_ar" />
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/titleText"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="@string/app_name"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+                android:layout_marginTop="@dimen/pc_space_xs"
+                android:text="@string/brand_studio"
+                android:textAppearance="@style/TextAppearance.PcPhone.Caption" />
 
-            <com.google.android.material.button.MaterialButtonToggleGroup
-                android:id="@+id/langGroup"
-                android:layout_width="wrap_content"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/connectionCard"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:selectionRequired="true"
-                app:singleSelection="true">
+                android:layout_marginTop="@dimen/pc_space_xl"
+                app:cardBackgroundColor="@color/pcphone_surface"
+                app:cardCornerRadius="@dimen/pc_radius_card"
+                app:cardElevation="@dimen/pc_elevation_card"
+                app:strokeColor="@color/pcphone_stroke"
+                app:strokeWidth="1dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/langFa"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:minWidth="44dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:text="@string/lang_fa" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/pc_space_lg">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/langEn"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:minWidth="44dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:text="@string/lang_en" />
+                    <TextView
+                        android:id="@+id/listenText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:drawablePadding="@dimen/pc_space_sm"
+                        android:gravity="center_vertical"
+                        android:textAppearance="@style/TextAppearance.PcPhone.Label"
+                        app:drawableStartCompat="@drawable/ic_status_dot" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/langAr"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:minWidth="44dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:text="@string/lang_ar" />
-            </com.google.android.material.button.MaterialButtonToggleGroup>
+                    <TextView
+                        android:id="@+id/pinText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/pc_space_sm"
+                        android:gravity="center"
+                        android:letterSpacing="0"
+                        android:textAppearance="@style/TextAppearance.PcPhone.Display"
+                        android:textIsSelectable="true"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/sasText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/pc_space_sm"
+                        android:gravity="center"
+                        android:textAppearance="@style/TextAppearance.PcPhone.Body"
+                        android:textIsSelectable="true" />
+
+                    <TextView
+                        android:id="@+id/hintText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/pc_space_md"
+                        android:text="@string/hint_short"
+                        android:textAppearance="@style/TextAppearance.PcPhone.Caption" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/fileCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/pc_space_md"
+                app:cardBackgroundColor="@color/pcphone_surface"
+                app:cardCornerRadius="@dimen/pc_radius_card"
+                app:cardElevation="@dimen/pc_elevation_card"
+                app:strokeColor="@color/pcphone_stroke"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="@dimen/pc_space_lg">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/file_title"
+                        android:textAppearance="@style/TextAppearance.PcPhone.Label" />
+
+                    <TextView
+                        android:id="@+id/fileStatusText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/pc_space_sm"
+                        android:text="@string/file_hint"
+                        android:textAppearance="@style/TextAppearance.PcPhone.Caption" />
+
+                    <Button
+                        android:id="@+id/sendFileButton"
+                        style="@style/Widget.PcPhone.Button.Secondary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/pc_space_md"
+                        android:text="@string/file_send"
+                        app:icon="@drawable/ic_pc_file"
+                        app:iconGravity="textStart" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/pc_space_xl"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/refreshPinButton"
+                    style="@style/Widget.PcPhone.Button.Ghost"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/pc_space_sm"
+                    android:layout_weight="1"
+                    android:text="@string/refresh_pairing" />
+
+                <Button
+                    android:id="@+id/unpairButton"
+                    style="@style/Widget.PcPhone.Button.Ghost"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/pc_space_sm"
+                    android:layout_weight="1"
+                    android:text="@string/clear_pairing"
+                    app:icon="@drawable/ic_pc_unpair"
+                    app:iconGravity="textStart" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/accessibilityButton"
+                style="@style/Widget.PcPhone.Button.Secondary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/pc_space_md"
+                android:text="@string/open_accessibility"
+                app:icon="@drawable/ic_pc_accessibility"
+                app:iconGravity="textStart" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/pc_space_md"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/captureButton"
+                    style="@style/Widget.PcPhone.Button.Primary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/pc_space_sm"
+                    android:layout_weight="1"
+                    android:text="@string/start_capture"
+                    app:icon="@drawable/ic_pc_capture"
+                    app:iconGravity="textStart" />
+
+                <Button
+                    android:id="@+id/stopCaptureButton"
+                    style="@style/Widget.PcPhone.Button.Secondary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/pc_space_sm"
+                    android:layout_weight="1"
+                    android:text="@string/stop_capture"
+                    app:icon="@drawable/ic_pc_stop"
+                    app:iconGravity="textStart" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/pc_space_xxl"
+                android:gravity="center"
+                android:text="@string/brand_copyright"
+                android:textAppearance="@style/TextAppearance.PcPhone.Caption" />
         </LinearLayout>
+    </ScrollView>
 
-        <TextView
-            android:id="@+id/hintText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/hint_short"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/pinText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:gravity="center"
-            android:letterSpacing="0"
-            android:textIsSelectable="true"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/sasText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:gravity="center"
-            android:textIsSelectable="true"
-            android:textSize="13sp" />
-
-        <TextView
-            android:id="@+id/listenText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:ellipsize="end"
-            android:gravity="center"
-            android:maxLines="2"
-            android:textSize="13sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/refreshPinButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:text="@string/refresh_pairing" />
-
-            <Button
-                android:id="@+id/unpairButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:text="@string/clear_pairing" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/accessibilityButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/open_accessibility" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/captureButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:text="@string/start_capture" />
-
-            <Button
-                android:id="@+id/stopCaptureButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:text="@string/stop_capture" />
-        </LinearLayout>
-    </LinearLayout>
-</ScrollView>
+    <com.phonecontrol.agent.ui.SplashMorphView
+        android:id="@+id/splashOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="true"
+        android:focusable="true" />
+</FrameLayout>

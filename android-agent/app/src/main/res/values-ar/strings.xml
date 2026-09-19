@@ -1,5 +1,8 @@
 <resources>
-    <string name="app_name">التحكم بالهاتف</string>
+    <string name="app_name">PcPhone</string>
+    <string name="brand_name">PcPhone</string>
+    <string name="brand_studio">منتج من AmenRoad Startup Studio</string>
+    <string name="brand_copyright">© 2026 AmenRoad Startup Studio. جميع الحقوق محفوظة.</string>
     <string name="hint_short">لوصل Wi-Fi انضم لنفس الراوتر. يظهر عنوان Wi-Fi أدناه. USB يعمل بشكل منفصل.</string>
     <string name="status_wifi_off">Wi-Fi مغلق</string>
     <string name="status_wifi_label">Wi-Fi </string>
@@ -21,6 +24,17 @@
     <string name="lang_en">EN</string>
     <string name="lang_ar">عر</string>
     <string name="accessibility_description">يسمح للكمبيوتر بالنقر والكتابة على هاتفك عند طلبك.</string>
-    <string name="control_listen_title">التحكم بالهاتف</string>
+    <string name="control_listen_title">PcPhone</string>
     <string name="control_listen_text">جاهز لـ Windows أو Chrome</string>
+    <string name="file_title">الملفات</string>
+    <string name="file_hint">أسقط الملف من ويندوز على صورة الهاتف في Chrome أو Firefox. للاتجاه الآخر اختر ملفاً هنا أو شارك إلى PcPhone.</string>
+    <string name="file_send">إرسال إلى ويندوز</string>
+    <string name="file_need_pc">صِل الكمبيوتر أولاً ثم أرسل الملف.</string>
+    <string name="file_too_large">%1$s كبير جداً.</string>
+    <string name="file_sending">جارٍ إرسال %1$s…</string>
+    <string name="file_sending_pct">إرسال %1$s · %2$d٪</string>
+    <string name="file_send_fail">تعذر إرسال %1$s.</string>
+    <string name="file_sent">تم إرسال %1$s إلى الكمبيوتر.</string>
+    <string name="file_receiving">جارٍ حفظ %1$s…</string>
+    <string name="file_received">حُفظ %1$s في Downloads/PcPhone.</string>
 </resources>

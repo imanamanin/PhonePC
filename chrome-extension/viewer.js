@@ -1,8 +1,8 @@
 import { PcmPlayer } from "./audio.js";
 import { findAgent } from "./discover.js";
+import { bindFileDrop } from "./files.js";
 import { PointerInput } from "./input.js";
 import {
-  BROWSER_PORT,
   decodeAudio,
   decodeVideo,
   envelope,
@@ -25,7 +25,15 @@ const scanProgress = document.getElementById("scan-progress");
 const detached = new URLSearchParams(location.search).get("mode") === "window";
 const player = new PcmPlayer();
 const input = new PointerInput(sendCommand);
-let socket = null;
+const files = bindFileDrop({
+  root: document.querySelector(".phone"),
+  tray: document.getElementById("file-tray"),
+  send: sendCommand,
+  isConnected: () => agentOpen,
+  setStatus
+});
+let agentPort = null;
+let agentOpen = false;
 let objectUrl = null;
 let pingTimer = 0;
 let statusTimer = 0;
@@ -85,21 +93,32 @@ async function connect(mode) {
     await player.unlock();
     setStatus(via === "wifi" ? "جستجو روی وای‌فای…" : "جستجو روی USB tether…", true);
     scanProgress.textContent = via === "wifi" ? "شبکه وای‌فای کامپیوتر اسکن می‌شود…" : "";
-    const found = await findAgent(hostInput.value, {
+    const result = await findAgent(hostInput.value, {
       mode: via,
-      onProgress: ({ host, scanned, total }) => {
-        scanProgress.textContent = `اسکن ${host} (${scanned}/${total})`;
+      onProgress: ({ host, scanned, total, localIps }) => {
+        if (localIps) {
+          scanProgress.textContent = `شبکه این کامپیوتر: ${localIps}`;
+          return;
+        }
+        scanProgress.textContent = total ? `اسکن ${host} (${scanned}/${total})` : host;
         setStatus(via === "wifi" ? `وای‌فای: ${host}` : `USB: ${host}`);
       }
     });
+    const found = result.found || result;
     if (!found.length) {
+      const extra = result.lastError ? ` (${result.lastError})` : "";
+      const ips = result.localIps ? ` شبکه PC: ${result.localIps}.` : "";
       scanProgress.textContent = "";
-      setStatus(
-        via === "wifi"
-          ? "وای‌فای پیدا نشد. IP روی گوشی را اینجا بنویسید. روتر نباید Client Isolation داشته باشد."
-          : "USB پیدا نشد. تترینگ را روشن کنید.",
-        true
-      );
+      if (via === "wifi") {
+        setStatus(
+          result.wifiReady
+            ? `گوشی روی این وای‌فای پیدا نشد.${ips} گوشی را به همان روتر کامپیوتر وصل کنید.`
+            : "وای‌فای کامپیوتر را روشن کنید و به همان روتر گوشی وصل شوید.",
+          true
+        );
+      } else {
+        setStatus(`USB پیدا نشد.${ips}${extra} تترینگ را روشن کنید.`, true);
+      }
       return;
     }
     const host = found[0].host;
@@ -108,30 +127,7 @@ async function connect(mode) {
     await chrome.storage.local.set({ host, connectMode: via });
     scanProgress.textContent = "";
     setStatus(`اتصال ${via === "wifi" ? "Wi-Fi" : "USB"} به ${host}…`);
-    const ws = new WebSocket(`ws://${host}:${BROWSER_PORT}/ws`);
-    ws.binaryType = "arraybuffer";
-    socket = ws;
-    ws.addEventListener("open", () => {
-      setStatus(via === "wifi" ? `وای‌فای وصل شد · ${host}` : `USB وصل شد · ${host}`);
-      sendCommand("session.hello", {
-        pairingId: pairing.pairingId,
-        sessionToken: pairing.sessionToken
-      });
-      pingTimer = window.setInterval(() => sendCommand("session.ping", { t: Date.now() }), 5000);
-      statusTimer = window.setInterval(() => sendCommand("device.status", {}), 4000);
-    });
-    ws.addEventListener("message", (event) => {
-      if (typeof event.data === "string") {
-        onJson(JSON.parse(event.data));
-        return;
-      }
-      onBinary(new Uint8Array(event.data));
-    });
-    ws.addEventListener("close", () => {
-      setStatus("قطع شد. دوباره USB یا Wi-Fi را بزنید.", true);
-      closeSocket(false);
-    });
-    ws.addEventListener("error", () => setStatus("خطای اتصال.", true));
+    connectAgent(host, via);
   } finally {
     connecting = false;
     usbBtn.disabled = false;
@@ -140,6 +136,9 @@ async function connect(mode) {
 }
 
 function onJson(msg) {
+  if (files.onMessage(msg)) {
+    return;
+  }
   if (msg.error) {
     if (msg.error.code === "UNPAIRED") {
       setStatus("اپ گوشی را به‌روز کنید تا اتصال بدون PIN کار کند.", true);
@@ -191,7 +190,7 @@ function onJson(msg) {
 function afterPaired() {
   sendCommand("video.start", { maxFps: 24, maxWidth: 720, bitrateKbps: 2000 });
   sendCommand("device.status", {});
-  setStatus("روی تصویر کلیک کنید.");
+  setStatus("روی تصویر کلیک کنید یا فایل را روی گوشی رها کنید.");
   setSettingsOpen(false);
 }
 
@@ -232,9 +231,76 @@ function onBinary(bytes) {
   image.src = url;
 }
 
+function connectAgent(host, via) {
+  const port = chrome.runtime.connect({ name: "phone" });
+  agentPort = port;
+  agentOpen = false;
+  let sent = false;
+  const sendConnect = () => {
+    if (sent || agentPort !== port) return;
+    sent = true;
+    port.postMessage({ type: "connect", host });
+  };
+  port.onMessage.addListener((message) => {
+    if (agentPort !== port) return;
+    if (message?.type === "ready") {
+      sendConnect();
+      return;
+    }
+    if (message?.type === "open") {
+      agentOpen = true;
+      setStatus(via === "wifi" ? `وای‌فای وصل شد · ${host}` : `USB وصل شد · ${host}`);
+      sendCommand("session.hello", {
+        pairingId: pairing.pairingId,
+        sessionToken: pairing.sessionToken
+      });
+      pingTimer = window.setInterval(() => sendCommand("session.ping", { t: Date.now() }), 5000);
+      statusTimer = window.setInterval(() => sendCommand("device.status", {}), 4000);
+      return;
+    }
+    if (message?.type === "text") {
+      try {
+        onJson(JSON.parse(message.data));
+      } catch {
+        // Ignore a truncated control frame.
+      }
+      return;
+    }
+    if (message?.type === "binary") {
+      onBinary(toBytes(message.data));
+      return;
+    }
+    if (message?.type === "close" || message?.type === "error") {
+      setStatus(message.type === "error" ? "خطای اتصال." : "قطع شد. دوباره USB یا Wi-Fi را بزنید.", true);
+      closeSocket(false);
+    }
+  });
+  port.onDisconnect.addListener(() => {
+    if (agentPort !== port) return;
+    setStatus("قطع شد. دوباره USB یا Wi-Fi را بزنید.", true);
+    closeSocket(false);
+  });
+  setTimeout(sendConnect, 200);
+}
+
+function toBytes(data) {
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (ArrayBuffer.isView(data)) {
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  }
+  if (Array.isArray(data)) return new Uint8Array(data);
+  if (data && typeof data === "object") {
+    const values = Object.values(data);
+    if (values.length && values.every((item) => typeof item === "number")) {
+      return new Uint8Array(values);
+    }
+  }
+  return new Uint8Array();
+}
+
 function sendCommand(type, payload) {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  socket.send(JSON.stringify(envelope(type, payload)));
+  if (!agentPort || !agentOpen) return;
+  agentPort.postMessage({ type: "send-text", data: JSON.stringify(envelope(type, payload)) });
 }
 
 function closeSocket(close = true) {
@@ -242,14 +308,21 @@ function closeSocket(close = true) {
   window.clearInterval(statusTimer);
   pingTimer = 0;
   statusTimer = 0;
-  if (close && socket) {
+  agentOpen = false;
+  const port = agentPort;
+  agentPort = null;
+  if (close && port) {
     try {
-      socket.close();
+      port.postMessage({ type: "disconnect" });
+    } catch {
+      // Already closed.
+    }
+    try {
+      port.disconnect();
     } catch {
       // Already closed.
     }
   }
-  socket = null;
 }
 
 function setStatus(text, openSettings = false) {

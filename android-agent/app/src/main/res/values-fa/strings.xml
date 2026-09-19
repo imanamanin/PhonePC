@@ -1,5 +1,8 @@
 <resources>
-    <string name="app_name">کنترل گوشی</string>
+    <string name="app_name">PcPhone</string>
+    <string name="brand_name">PcPhone</string>
+    <string name="brand_studio">محصولی از AmenRoad Startup Studio</string>
+    <string name="brand_copyright">© ۲۰۲۶ AmenRoad Startup Studio. همه حقوق محفوظ است.</string>
     <string name="hint_short">برای وای‌فای هر دو را به همان روتر وصل کنید. IP وای‌فای پایین دیده می‌شود. USB جداگانه کار می‌کند.</string>
     <string name="status_wifi_off">وای‌فای خاموش</string>
     <string name="status_wifi_label">وای‌فای </string>
@@ -21,6 +24,17 @@
     <string name="lang_en">EN</string>
     <string name="lang_ar">عر</string>
     <string name="accessibility_description">اجازه می‌دهد رایانه با درخواست شما روی گوشی تپ و تایپ کند.</string>
-    <string name="control_listen_title">کنترل گوشی</string>
+    <string name="control_listen_title">PcPhone</string>
     <string name="control_listen_text">آماده برای ویندوز یا کروم</string>
+    <string name="file_title">فایل</string>
+    <string name="file_hint">فایل را از ویندوز روی تصویر گوشی در کروم یا فایرفاکس رها کنید. برای مسیر برعکس همین‌جا انتخاب کنید یا Share به PcPhone بزنید.</string>
+    <string name="file_send">ارسال به ویندوز</string>
+    <string name="file_need_pc">اول کامپیوتر را وصل کنید، بعد فایل را بفرستید.</string>
+    <string name="file_too_large">%1$s خیلی بزرگ است.</string>
+    <string name="file_sending">در حال ارسال %1$s…</string>
+    <string name="file_sending_pct">ارسال %1$s · %2$d٪</string>
+    <string name="file_send_fail">ارسال %1$s انجام نشد.</string>
+    <string name="file_sent">%1$s به کامپیوتر ارسال شد.</string>
+    <string name="file_receiving">در حال ذخیره %1$s…</string>
+    <string name="file_received">%1$s در Downloads/PcPhone ذخیره شد.</string>
 </resources>

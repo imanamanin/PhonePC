@@ -1,5 +1,8 @@
 <resources>
-    <string name="app_name">Phone Control</string>
+    <string name="app_name">PcPhone</string>
+    <string name="brand_name">PcPhone</string>
+    <string name="brand_studio">A Product of AmenRoad Startup Studio</string>
+    <string name="brand_copyright">© 2026 AmenRoad Startup Studio. All rights reserved.</string>
     <string name="hint_short">For Wi-Fi, join the same router as the PC. The Wi-Fi IP is shown below. USB tethering still works separately.</string>
     <string name="status_wifi_off">Wi-Fi off</string>
     <string name="status_wifi_label">Wi-Fi </string>
@@ -21,6 +24,17 @@
     <string name="lang_en">EN</string>
     <string name="lang_ar">عر</string>
     <string name="accessibility_description">Lets this PC tap and type on your phone when you ask it to.</string>
-    <string name="control_listen_title">Phone Control</string>
+    <string name="control_listen_title">PcPhone</string>
     <string name="control_listen_text">Ready for Windows or Chrome</string>
+    <string name="file_title">Files</string>
+    <string name="file_hint">Drop a file from the PC onto the phone image in Chrome or Firefox. To send the other way, pick a file here or Share to PcPhone.</string>
+    <string name="file_send">Send to Windows</string>
+    <string name="file_need_pc">Connect the PC first, then send the file.</string>
+    <string name="file_too_large">%1$s is too large.</string>
+    <string name="file_sending">Sending %1$s…</string>
+    <string name="file_sending_pct">Sending %1$s · %2$d%%</string>
+    <string name="file_send_fail">Could not send %1$s.</string>
+    <string name="file_sent">Sent %1$s to the PC.</string>
+    <string name="file_receiving">Saving %1$s…</string>
+    <string name="file_received">Saved %1$s in Downloads/PcPhone.</string>
 </resources>

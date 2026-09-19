@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="pc_space_xs">4dp</dimen>
+    <dimen name="pc_space_sm">8dp</dimen>
+    <dimen name="pc_space_md">12dp</dimen>
+    <dimen name="pc_space_lg">16dp</dimen>
+    <dimen name="pc_space_xl">24dp</dimen>
+    <dimen name="pc_space_xxl">32dp</dimen>
+    <dimen name="pc_radius_sm">10dp</dimen>
+    <dimen name="pc_radius_md">16dp</dimen>
+    <dimen name="pc_radius_lg">22dp</dimen>
+    <dimen name="pc_radius_card">20dp</dimen>
+    <dimen name="pc_button_height">52dp</dimen>
+    <dimen name="pc_chip_height">36dp</dimen>
+    <dimen name="pc_touch_min">48dp</dimen>
+    <dimen name="pc_icon">22dp</dimen>
+    <dimen name="pc_elevation_card">3dp</dimen>
+    <dimen name="pc_stroke">1dp</dimen>
+    <dimen name="pc_pattern_size">180dp</dimen>
+    <dimen name="pc_text_display">32sp</dimen>
+    <dimen name="pc_text_headline">22sp</dimen>
+    <dimen name="pc_text_title">18sp</dimen>
+    <dimen name="pc_text_body">15sp</dimen>
+    <dimen name="pc_text_label">13sp</dimen>
+    <dimen name="pc_text_caption">12sp</dimen>
+</resources>

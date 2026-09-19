@@ -1,0 +1,35 @@
+{
+  "manifest_version": 2,
+  "name": "PC Phone",
+  "version": "0.1.11",
+  "description": "Show and control your Android phone on the right of Firefox over USB or Wi-Fi.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "pc-phone@phonepc.local",
+      "strict_min_version": "115.0"
+    }
+  },
+  "browser_action": {
+    "default_title": "PC Phone",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "page": "background.html",
+    "persistent": true
+  },
+  "permissions": [
+    "storage",
+    "dns",
+    "nativeMessaging",
+    "<all_urls>"
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -52,6 +52,7 @@ public static class MessageTypes
     public const string SmsSend = "sms.send";
 
     public const string FileOffer = "file.offer";
+    public const string FileChunk = "file.chunk";
     public const string FileProgress = "file.progress";
     public const string FileCancel = "file.cancel";
     public const string FileComplete = "file.complete";
@@ -68,7 +69,7 @@ public static class MessageTypes
         NotificationReceived, NotificationRemoved, NotificationUpdated, NotificationAction,
         ClipboardChanged, ClipboardSet,
         SmsList, SmsReceived, SmsSend,
-        FileOffer, FileProgress, FileCancel, FileComplete, FileError
+        FileOffer, FileChunk, FileProgress, FileCancel, FileComplete, FileError
     };
 
     public static bool IsKnown(string type) => All.Contains(type);

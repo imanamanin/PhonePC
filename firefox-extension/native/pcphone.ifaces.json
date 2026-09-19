@@ -1,0 +1,7 @@
+{
+  "name": "pcphone.ifaces",
+  "description": "PcPhone local IPv4 interfaces for Firefox USB/Wi-Fi discovery",
+  "path": "E:\\PhonePC\\firefox-extension\\native\\pcphone-ifaces.exe",
+  "type": "stdio",
+  "allowed_extensions": ["pc-phone@phonepc.local"]
+}

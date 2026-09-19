@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pcphone_navy">#06101C</color>
+    <color name="pcphone_navy_alt">#081526</color>
+    <color name="pcphone_surface">#0C1828</color>
+    <color name="pcphone_surface_high">#12233A</color>
+    <color name="pcphone_persian_blue">#083C91</color>
+    <color name="pcphone_turquoise">#30B4D3</color>
+    <color name="pcphone_turquoise_dim">#1A8FA8</color>
+    <color name="pcphone_turquoise_glow">#4030B4D3</color>
+    <color name="pcphone_orange">#F77F08</color>
+    <color name="pcphone_orange_dim">#C46206</color>
+    <color name="pcphone_sand">#E9D8B6</color>
+    <color name="pcphone_text">#EAF3FF</color>
+    <color name="pcphone_text_muted">#9BB0C9</color>
+    <color name="pcphone_stroke">#24405F</color>
+    <color name="pcphone_ripple">#3330B4D3</color>
+    <color name="pcphone_ripple_orange">#33F77F08</color>
+</resources>

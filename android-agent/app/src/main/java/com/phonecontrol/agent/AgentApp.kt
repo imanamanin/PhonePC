@@ -28,6 +28,7 @@ class AgentApp : Application() {
         val engine = PairingEngine(nowMs = { System.currentTimeMillis() })
         store.load()?.let { engine.restore(it) }
         runtime = AgentRuntime(engine, store, DeviceStatusReader(this))
+        com.phonecontrol.agent.files.PhoneFiles.bind(this)
         try {
             startControlListener()
         } catch (_: Exception) {
@@ -128,4 +129,7 @@ private class AppCommandSink(
     override fun injectKey(key: String): Boolean = InputInjector.key(key)
 
     override fun injectText(text: String): Boolean = InputInjector.type(text)
+
+    override fun handleFile(envelope: com.phonecontrol.agent.domain.Envelope) =
+        com.phonecontrol.agent.files.PhoneFiles.handle(envelope)
 }
