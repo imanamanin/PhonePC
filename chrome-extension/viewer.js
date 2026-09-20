@@ -3,6 +3,7 @@ import { findAgent } from "./discover.js";
 import { bindFileDrop } from "./files.js";
 import { PointerInput } from "./input.js";
 import {
+  BROWSER_PORT,
   decodeAudio,
   decodeVideo,
   envelope,
@@ -33,7 +34,9 @@ const files = bindFileDrop({
   setStatus
 });
 let agentPort = null;
+let agentSocket = null;
 let agentOpen = false;
+let videoReady = false;
 let objectUrl = null;
 let pingTimer = 0;
 let statusTimer = 0;
@@ -145,7 +148,8 @@ function onJson(msg) {
       return;
     }
     if (msg.error.code === "PERMISSION_DENIED") {
-      setStatus(msg.error.message || "مجوز Capture یا Accessibility روی گوشی لازم است.");
+      videoReady = false;
+      setStatus("روی گوشی دکمه Capture را بزنید و دیالوگ سیستم را بپذیرید.", true);
       return;
     }
     setStatus(msg.error.message || msg.error.code);
@@ -177,21 +181,32 @@ function onJson(msg) {
     afterPaired();
     return;
   }
+  if (msg.type === "video.start" && !msg.error) {
+    videoReady = true;
+    return;
+  }
   if (msg.type === "device.status" || msg.type === "state.update") {
     const width = msg.payload?.screenWidth;
     const height = msg.payload?.screenHeight;
     input.setScreen(width, height, msg.payload?.rotation || 0);
     if (msg.payload?.mediaProjection === false) {
+      videoReady = false;
       setStatus("روی گوشی دکمه Capture را بزنید و دیالوگ سیستم را بپذیرید.");
+    } else if (msg.payload?.mediaProjection === true && !videoReady) {
+      requestVideo();
     }
   }
 }
 
 function afterPaired() {
-  sendCommand("video.start", { maxFps: 24, maxWidth: 720, bitrateKbps: 2000 });
+  requestVideo();
   sendCommand("device.status", {});
   setStatus("روی تصویر کلیک کنید یا فایل را روی گوشی رها کنید.");
   setSettingsOpen(false);
+}
+
+function requestVideo() {
+  sendCommand("video.start", { maxFps: 24, maxWidth: 720, bitrateKbps: 2000 });
 }
 
 function onBinary(bytes) {
@@ -232,6 +247,46 @@ function onBinary(bytes) {
 }
 
 function connectAgent(host, via) {
+  closeSocket();
+  videoReady = false;
+  connectDirect(host, via, true);
+}
+
+function connectDirect(host, via, allowFallback) {
+  const ws = new WebSocket(`ws://${host}:${BROWSER_PORT}/ws`);
+  ws.binaryType = "arraybuffer";
+  agentSocket = ws;
+  let opened = false;
+  ws.addEventListener("open", () => {
+    if (agentSocket !== ws) return;
+    opened = true;
+    beginSession(host, via);
+  });
+  ws.addEventListener("message", (event) => {
+    if (agentSocket !== ws) return;
+    if (typeof event.data === "string") {
+      try {
+        onJson(JSON.parse(event.data));
+      } catch {
+        // Ignore a truncated control frame.
+      }
+      return;
+    }
+    onBinary(new Uint8Array(event.data));
+  });
+  ws.addEventListener("close", () => {
+    if (agentSocket !== ws) return;
+    agentSocket = null;
+    if (!opened && allowFallback) {
+      connectViaWorker(host, via);
+      return;
+    }
+    setStatus("قطع شد. دوباره USB یا Wi-Fi را بزنید.", true);
+    closeSocket(false);
+  });
+}
+
+function connectViaWorker(host, via) {
   const port = chrome.runtime.connect({ name: "phone" });
   agentPort = port;
   agentOpen = false;
@@ -248,14 +303,7 @@ function connectAgent(host, via) {
       return;
     }
     if (message?.type === "open") {
-      agentOpen = true;
-      setStatus(via === "wifi" ? `وای‌فای وصل شد · ${host}` : `USB وصل شد · ${host}`);
-      sendCommand("session.hello", {
-        pairingId: pairing.pairingId,
-        sessionToken: pairing.sessionToken
-      });
-      pingTimer = window.setInterval(() => sendCommand("session.ping", { t: Date.now() }), 5000);
-      statusTimer = window.setInterval(() => sendCommand("device.status", {}), 4000);
+      beginSession(host, via);
       return;
     }
     if (message?.type === "text") {
@@ -283,6 +331,19 @@ function connectAgent(host, via) {
   setTimeout(sendConnect, 200);
 }
 
+function beginSession(host, via) {
+  agentOpen = true;
+  setStatus(via === "wifi" ? `وای‌فای وصل شد · ${host}` : `USB وصل شد · ${host}`);
+  sendCommand("session.hello", {
+    pairingId: pairing.pairingId,
+    sessionToken: pairing.sessionToken
+  });
+  window.clearInterval(pingTimer);
+  window.clearInterval(statusTimer);
+  pingTimer = window.setInterval(() => sendCommand("session.ping", { t: Date.now() }), 5000);
+  statusTimer = window.setInterval(() => sendCommand("device.status", {}), 4000);
+}
+
 function toBytes(data) {
   if (data instanceof ArrayBuffer) return new Uint8Array(data);
   if (ArrayBuffer.isView(data)) {
@@ -299,8 +360,15 @@ function toBytes(data) {
 }
 
 function sendCommand(type, payload) {
-  if (!agentPort || !agentOpen) return;
-  agentPort.postMessage({ type: "send-text", data: JSON.stringify(envelope(type, payload)) });
+  if (!agentOpen) return;
+  const body = JSON.stringify(envelope(type, payload));
+  if (agentSocket && agentSocket.readyState === 1) {
+    agentSocket.send(body);
+    return;
+  }
+  if (agentPort) {
+    agentPort.postMessage({ type: "send-text", data: body });
+  }
 }
 
 function closeSocket(close = true) {
@@ -309,6 +377,16 @@ function closeSocket(close = true) {
   pingTimer = 0;
   statusTimer = 0;
   agentOpen = false;
+  videoReady = false;
+  const socket = agentSocket;
+  agentSocket = null;
+  if (socket) {
+    try {
+      socket.close();
+    } catch {
+      // Already closed.
+    }
+  }
   const port = agentPort;
   agentPort = null;
   if (close && port) {

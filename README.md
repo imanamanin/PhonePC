@@ -10,24 +10,26 @@ Control your Android phone from Windows in **Chrome** or **Firefox**. USB tether
 
 ## نصب برای کاربر / For users / للمستخدم
 
-**همهٔ فایل‌های نصبی اینجاست — فقط این سه تا را بردارید:**
+**دانلود مستقیم (جایگزین نسخه‌های قبلی اپ و افزونهٔ کروم):**
 
-**All install files are here — copy only these three:**
+**Direct download (replaces the previous Android app and Chrome extension):**
 
-**كل ملفات التثبيت هنا — خذ هذه الثلاثة فقط:**
+**تحميل مباشر (يستبدل تطبيق أندرويد وإضافة كروم السابقة):**
 
-| # | فایل در پوشه [`install/`](install/) | نصب روی |
+| # | فایل | دانلود |
 | --- | --- | --- |
-| ۱ | [`1-android-PcPhone.apk`](install/1-android-PcPhone.apk) | گوشی |
-| ۲ | [`2-chrome-extension.zip`](install/2-chrome-extension.zip) | کامپیوتر (Chrome) |
-| ۳ | [`3-firefox-extension.zip`](install/3-firefox-extension.zip) | کامپیوتر (Firefox) |
+| ۱ | اپ اندروید | [1-android-PcPhone.apk](https://github.com/imanamanin/PhonePC/raw/master/install/1-android-PcPhone.apk) |
+| ۲ | افزونه Chrome | [2-chrome-extension.zip](https://github.com/imanamanin/PhonePC/raw/master/install/2-chrome-extension.zip) |
+| ۳ | افزونه Firefox (بدون تغییر) | [3-firefox-extension.zip](https://github.com/imanamanin/PhonePC/raw/master/install/3-firefox-extension.zip) |
 
-راهنمای فارسی / English / العربية با عکس مراحل: **[`install/README.md`](install/README.md)**
+همین فایل‌ها در پوشه [`install/`](install/) هم هستند.
+
+راهنمای فارسی / English / العربية: **[`install/README.md`](install/README.md)**
 
 خلاصه:
 
-1. APK را روی گوشی نصب کنید → Accessibility و Capture را روشن کنید.
-2. زیپ کروم **یا** فایرفاکس را از حالت فشرده خارج کنید و به‌صورت unpacked / temporary add-on بارگذاری کنید.
+1. APK را روی گوشی نصب کنید (نسخهٔ قبلی را جایگزین کنید) → Accessibility و Capture را روشن کنید.
+2. زیپ کروم را از حالت فشرده خارج کنید و با **Load unpacked** بارگذاری کنید (نسخه 0.1.7). افزونهٔ فایرفاکس در این انتشار عوض نشده.
 3. USB tethering یا همان وای‌فای روتر → در افزونه **اتصال USB** یا **اتصال Wi-Fi**. IP لازم نیست.
 4. فایل را روی تصویر گوشی رها کنید تا به گوشی برود.
 

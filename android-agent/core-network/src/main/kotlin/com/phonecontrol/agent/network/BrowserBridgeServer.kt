@@ -183,6 +183,7 @@ class BrowserBridgeServer(
             send(WebSocketFrames.TEXT, JsonLite.encodeEnvelope(envelope).encodeToByteArray())
         }
         ControlPush.addListener(push)
+        maybeMedia()
         try {
             while (running.get() && live.get()) {
                 val frame = try {

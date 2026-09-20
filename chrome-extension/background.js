@@ -139,9 +139,12 @@ function attachPhone(port) {
             port.postMessage({ type: "text", data: event.data });
             return;
           }
-          port.postMessage({ type: "binary", data: event.data });
+          const src = new Uint8Array(event.data);
+          const copy = new Uint8Array(src.byteLength);
+          copy.set(src);
+          port.postMessage({ type: "binary", data: copy.buffer });
         } catch {
-          drop();
+          // Keep the socket; skip a bad media frame.
         }
       });
       ws.addEventListener("close", () => {

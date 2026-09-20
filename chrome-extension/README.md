@@ -1,22 +1,42 @@
-# PC Phone Chrome extension
+# PC Phone — Chrome
 
-جایگزین کلاینت ویندوز برای دیدن و کنترل گوشی داخل Google Chrome.
+افزونهٔ Google Chrome برای دیدن و کنترل گوشی. نسخه **0.1.7**.
 
-افزونه به TCP خام وصل نمی‌شود. اپ اندروید روی پورت **17893** یک WebSocket می‌دهد؛ کنترل روی همان پروتکل pairing/ورودی می‌ماند و تصویر JPEG به‌علاوه صوت دیجیتال همان استریم کانال C است.
+Google Chrome extension to view and control the phone. Version **0.1.7**.
 
-## نصب
+إضافة Google Chrome لعرض الهاتف والتحكّم به. الإصدار **0.1.7**.
 
-1. Chrome را باز کنید و به `chrome://extensions` بروید.
-2. **Developer mode** را روشن کنید.
-3. **Load unpacked** را بزنید و پوشه `chrome-extension` همین مخزن را انتخاب کنید.
-4. روی آیکون **PC Phone** در نوار ابزار کلیک کنید تا پنل کناری (مثل Trust Wallet) باز شود.
-5. برای پنجرهٔ جدا، دکمه ⧉ داخل پنل را بزنید.
+**دانلود زیپ نصب / Download zip / حمّل الملف:** [`install/2-chrome-extension.zip`](../install/2-chrome-extension.zip)
 
-## استفاده
+---
 
-1. اپ گوشی را باز کنید، Accessibility و Capture را فعال کنید.
-2. **USB:** تترینگ را روشن کنید و در پنل **اتصال USB** را بزنید.
-3. **Wi-Fi:** تترینگ USB را لازم نیست. گوشی و کامپیوتر را به **همان روتر** وصل کنید. IP وای‌فای روی صفحهٔ گوشی دیده می‌شود. در پنل **اتصال Wi-Fi** را بزنید. PIN لازم نیست.
-4. اگر وای‌فای پیدا نشد، همان IP روی گوشی را در کادر بنویسید. بعضی روترها Client Isolation دارند و دستگاه‌ها همدیگر را نمی‌بینند.
+## فارسی
 
-کلاینت ویندوز هنوز سرجایش است؛ این افزونه مسیر جداگانه‌ای روی پورت 17893 است.
+1. زیپ را از حالت فشرده خارج کنید.
+2. در کروم: `chrome://extensions` → **Developer mode** → **Load unpacked** → پوشه‌ای که `manifest.json` دارد.
+3. اپ اندروید را نصب کنید، Accessibility و Capture را روشن کنید.
+4. **اتصال USB** یا **اتصال Wi-Fi**. IP لازم نیست.
+
+اگر نسخهٔ قبلی افزونه را دارید، Reload یا Remove سپس Load unpacked.
+
+---
+
+## English
+
+1. Unzip the package.
+2. In Chrome: `chrome://extensions` → **Developer mode** → **Load unpacked** → folder that contains `manifest.json`.
+3. Install the Android APK, enable Accessibility and Capture.
+4. Click **USB** or **Wi-Fi**. You do not type an IP.
+
+Reload or remove any older PC Phone extension first.
+
+---
+
+## العربية
+
+1. فك ضغط الملف.
+2. في كروم: `chrome://extensions` ← **Developer mode** ← **Load unpacked** ← المجلد الذي فيه `manifest.json`.
+3. ثبّت تطبيق أندرويد وفعّل Accessibility والالتقاط.
+4. اضغط **USB** أو **Wi-Fi**. لا حاجة لكتابة IP.
+
+أعد تحميل الإضافة القديمة أو احذفها ثم Load unpacked.

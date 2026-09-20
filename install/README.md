@@ -1,133 +1,130 @@
-# PcPhone — فایل‌های نصب / Installation files / ملفات التثبيت
+# PcPhone — دانلود و نصب / Download & install / التحميل والتثبيت
 
-این پوشه فقط برای **نصب** است. سورس برنامه در پوشه‌های دیگر مخزن است.
+دانلود مستقیم از گیت‌هاب (جایگزین نسخه‌های قبلی):
 
-This folder is only for **install**. Source code lives in the other repo folders.
+Direct GitHub download (replaces older builds):
 
-هذا المجلد للـ**تثبيت** فقط. الشيفرة في مجلدات أخرى.
+تحميل مباشر من GitHub (يستبدل النسخ السابقة):
 
-| ترتیب / Order / الترتيب | فایل / File | چه کار می‌کند / What | چه کسی نصب می‌کند |
-| --- | --- | --- | --- |
-| ۱ | `1-android-PcPhone.apk` | اپ گوشی | روی **اندروید** |
-| ۲ | `2-chrome-extension.zip` | افزونه کروم | روی **ویندوز** اگر Chrome دارید |
-| ۳ | `3-firefox-extension.zip` | افزونه فایرفاکس | روی **ویندوز** اگر Firefox دارید |
+| # | فایل / File | لینک دانلود / Download |
+| --- | --- | --- |
+| ۱ | اپ اندروید | [**1-android-PcPhone.apk**](https://github.com/imanamanin/PhonePC/raw/master/install/1-android-PcPhone.apk) |
+| ۲ | افزونه کروم | [**2-chrome-extension.zip**](https://github.com/imanamanin/PhonePC/raw/master/install/2-chrome-extension.zip) |
+| ۳ | افزونه فایرفاکس (بدون تغییر) | [3-firefox-extension.zip](https://github.com/imanamanin/PhonePC/raw/master/install/3-firefox-extension.zip) |
 
-کلاینت ویندوز جدا لازم نیست. یکی از دو مرورگر کافی است.
+همین سه فایل در همین پوشه هم هستند. سورس در پوشه‌های دیگر مخزن است.
 
-You do not need the Windows desktop app. Chrome **or** Firefox is enough.
+These three files are also in this folder. Source code lives elsewhere in the repo.
 
-لا تحتاج برنامج ويندوز منفصل. كروم **أو** فايرفوكس يكفي.
+هذه الملفات الثلاثة موجودة في هذا المجلد أيضاً. الشيفرة في مجلدات أخرى.
+
+| ترتیب | فایل | نصب روی |
+| --- | --- | --- |
+| ۱ | `1-android-PcPhone.apk` | **اندروید** |
+| ۲ | `2-chrome-extension.zip` | **Chrome** روی ویندوز |
+| ۳ | `3-firefox-extension.zip` | Firefox روی ویندوز (نسخهٔ قبلی؛ در این انتشار عوض نشده) |
+
+کلاینت ویندوز جدا لازم نیست. برای بیشتر کاربران: **اندروید + Chrome**.
+
+You do not need the Windows desktop app. For most users: **Android + Chrome**.
+
+لا تحتاج برنامج ويندوز منفصل. لمعظم المستخدمين: **أندرويد + Chrome**.
 
 ---
 
-## فارسی — نصب گام‌به‌گام
+## فارسی — اندروید و Chrome
 
 ### ۱) گوشی — فقط این APK
 
-1. فایل `1-android-PcPhone.apk` را به گوشی کپی کنید (USB، تلگرام به خودتان، یا دانلود از همین مخزن).
+1. از جدول بالا `1-android-PcPhone.apk` را دانلود کنید، یا همان فایل را از این پوشه به گوشی بفرستید.
 2. روی گوشی بازش کنید و نصب کنید. اگر اندروید هشدار «منبع ناشناس» داد، نصب از این فایل را اجازه بدهید.
 3. اپ **PcPhone** را باز کنید.
 4. **دسترسی (Accessibility)** را روشن کنید.
-5. **شروع تصویر (Capture)** را بزنید و پنجرهٔ سیستم را بپذیرید.
+5. **شروع تصویر (Capture)** را بزنید و پنجرهٔ سیستم را بپذیرید. اگر اجازهٔ نوتیفیکیشن خواست، بدهید.
 6. گوشی را با **USB tethering** به کامپیوتر وصل کنید، **یا** وای‌فای گوشی و کامپیوتر را به **همان روتر** وصل کنید.
 
-### ۲) کامپیوتر — کروم **یا** فایرفاکس
+نسخهٔ قبلی اپ را حذف کنید و این APK را جایگزین کنید.
 
-**کروم**
+### ۲) کامپیوتر — افزونهٔ Google Chrome
 
-1. `2-chrome-extension.zip` را از حالت فشرده خارج کنید. یک پوشه می‌گیرید.
+1. `2-chrome-extension.zip` را دانلود و از حالت فشرده خارج کنید. یک پوشه می‌گیرید.
 2. در کروم بروید به: `chrome://extensions`
 3. **Developer mode** را روشن کنید.
-4. **Load unpacked** را بزنید و **همان پوشهٔ از حالت فشرده خارج‌شده** را انتخاب کنید (فایلی که داخلش `manifest.json` است).
-5. اگر کروم اجازهٔ دسترسی به سایت‌ها را خواست، تأیید کنید.
-6. آیکون **PC Phone** را بزنید. **اتصال USB** یا **اتصال Wi-Fi**. IP لازم نیست.
-
-**فایرفاکس**
-
-1. `3-firefox-extension.zip` را از حالت فشرده خارج کنید.
-2. داخل پوشه بروید به `native` و یک‌بار `install.ps1` را در PowerShell اجرا کنید (برای پیدا کردن IP شبکه).
-3. در فایرفاکس بروید به: `about:debugging#/runtime/this-firefox`
-4. **Load Temporary Add-on…** را بزنید و فایل `manifest.json` داخل پوشهٔ خارج‌شده را انتخاب کنید.
-5. آیکون **PC Phone** را بزنید. **اتصال USB** یا **اتصال Wi-Fi**.
-
-> افزونهٔ موقت فایرفاکس بعد از بستن مرورگر پاک می‌شود؛ دوباره Load Temporary کنید.
+4. اگر نسخهٔ قبلی افزونه را دارید، **Remove** کنید یا **Reload** بزنید.
+5. **Load unpacked** را بزنید و **همان پوشهٔ از حالت فشرده خارج‌شده** را انتخاب کنید (فایلی که داخلش `manifest.json` است). نسخه باید **0.1.7** باشد.
+6. اگر کروم اجازهٔ دسترسی به سایت‌ها را خواست، تأیید کنید.
+7. آیکون **PC Phone** را بزنید. **اتصال USB** یا **اتصال Wi-Fi**. IP لازم نیست.
 
 ### فایل بکشید
 
 بعد از وصل شدن، فایل را از دسکتاپ روی تصویر گوشی در افزونه رها کنید. از گوشی: در اپ **ارسال به ویندوز** یا Share به PcPhone.
 
+### فایرفاکس
+
+افزونهٔ فایرفاکس در این انتشار عوض نشده است. اگر قبلاً نصب کرده‌اید همان را نگه دارید، یا از `3-firefox-extension.zip` استفاده کنید.
+
 ---
 
-## English — step by step
+## English — Android and Chrome
 
 ### 1) Phone — only this APK
 
-1. Copy `1-android-PcPhone.apk` to the phone.
+1. Download `1-android-PcPhone.apk` from the table above, or copy it from this folder to the phone.
 2. Open it and install. Allow install from this file if Android asks.
 3. Open **PcPhone**.
 4. Turn on **Accessibility**.
-5. Tap **Start capture** and accept the system dialog.
+5. Tap **Start capture** and accept the system dialog. Allow notifications if asked.
 6. Turn on **USB tethering**, **or** join the phone and PC to the **same Wi-Fi router**.
 
-### 2) PC — Chrome **or** Firefox
+Uninstall the previous app, then install this APK.
 
-**Chrome**
+### 2) PC — Google Chrome extension
 
-1. Unzip `2-chrome-extension.zip`.
+1. Download and unzip `2-chrome-extension.zip`.
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
-4. **Load unpacked** and pick the unzipped folder (the one that contains `manifest.json`).
-5. Allow site access if Chrome asks.
-6. Click **PC Phone**, then **USB** or **Wi-Fi**. You do not type an IP.
-
-**Firefox**
-
-1. Unzip `3-firefox-extension.zip`.
-2. Run `native/install.ps1` once from that folder (helps the PC see local IPs).
-3. Open `about:debugging#/runtime/this-firefox`.
-4. **Load Temporary Add-on…** and choose `manifest.json` in the unzipped folder.
-5. Click **PC Phone**, then **USB** or **Wi-Fi**.
-
-> A temporary Firefox add-on is removed when Firefox quits. Load it again after restart.
+4. Remove or **Reload** any older PC Phone extension.
+5. **Load unpacked** and pick the unzipped folder (the one that contains `manifest.json`). Version should be **0.1.7**.
+6. Allow site access if Chrome asks.
+7. Click **PC Phone**, then **USB** or **Wi-Fi**. You do not type an IP.
 
 ### Drag and drop
 
 After connect, drop a file from the desktop onto the phone image. From the phone: **Send to Windows** in the app, or Share to PcPhone.
 
+### Firefox
+
+The Firefox add-on is unchanged in this release. Keep what you already have, or use `3-firefox-extension.zip`.
+
 ---
 
-## العربية — خطوة بخطوة
+## العربية — أندرويد وChrome
 
 ### ١) الهاتف — هذا الـ APK فقط
 
-1. انسخ `1-android-PcPhone.apk` إلى الهاتف.
+1. حمّل `1-android-PcPhone.apk` من الجدول أعلاه، أو انسخه من هذا المجلد إلى الهاتف.
 2. افتحه وثبّته. اسمح بالتثبيت من هذا الملف إذا طلب أندرويد ذلك.
 3. افتح تطبيق **PcPhone**.
 4. فعّل **إمكانية الوصول (Accessibility)**.
-5. اضغط **بدء الالتقاط** واقبل نافذة النظام.
+5. اضغط **بدء الالتقاط** واقبل نافذة النظام. اسمح بالإشعارات إن طُلب ذلك.
 6. فعّل **USB tethering**، **أو** صِل الهاتف والكمبيوتر بنفس راوتر الـ Wi-Fi.
 
-### ٢) الكمبيوتر — كروم **أو** فايرفوكس
+احذف التطبيق السابق ثم ثبّت هذا الـ APK.
 
-**كروم**
+### ٢) الكمبيوتر — إضافة Google Chrome
 
-1. فك ضغط `2-chrome-extension.zip`.
+1. حمّل `2-chrome-extension.zip` وفك ضغطه.
 2. افتح `chrome://extensions`.
 3. فعّل **Developer mode**.
-4. **Load unpacked** واختر المجلد بعد فك الضغط (الذي فيه `manifest.json`).
-5. اسمح بالوصول إلى المواقع إذا طلب كروم ذلك.
-6. اضغط أيقونة **PC Phone** ثم **USB** أو **Wi-Fi**. لا حاجة لكتابة IP.
-
-**فايرفوكس**
-
-1. فك ضغط `3-firefox-extension.zip`.
-2. نفّذ مرة واحدة `native/install.ps1` من ذلك المجلد.
-3. افتح `about:debugging#/runtime/this-firefox`.
-4. **Load Temporary Add-on…** واختر `manifest.json`.
-5. اضغط **PC Phone** ثم **USB** أو **Wi-Fi**.
-
-> الإضافة المؤقتة في فايرفوكس تُحذف عند إغلاق المتصفح. حمّلها مرة أخرى بعد إعادة الفتح.
+4. احذف الإضافة القديمة أو اضغط **Reload**.
+5. **Load unpacked** واختر المجلد بعد فك الضغط (الذي فيه `manifest.json`). الإصدار **0.1.7**.
+6. اسمح بالوصول إلى المواقع إذا طلب كروم ذلك.
+7. اضغط أيقونة **PC Phone** ثم **USB** أو **Wi-Fi**. لا حاجة لكتابة IP.
 
 ### سحب الملفات
 
 بعد الاتصال اسحب ملفاً من سطح المكتب إلى صورة الهاتف. من الهاتف: **إرسال إلى ويندوز** أو المشاركة إلى PcPhone.
+
+### فايرفوكس
+
+إضافة فايرفوكس لم تتغيّر في هذا الإصدار. أبقِ نسختك الحالية أو استخدم `3-firefox-extension.zip`.

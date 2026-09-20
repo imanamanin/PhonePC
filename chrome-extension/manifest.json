@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PC Phone",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Show and control your Android phone in a Chrome side panel over USB or Wi-Fi.",
   "action": {
     "default_title": "PC Phone",

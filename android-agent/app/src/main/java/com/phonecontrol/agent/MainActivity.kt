@@ -46,8 +46,14 @@ class MainActivity : AppCompatActivity() {
         val data = result.data
         if (result.resultCode == Activity.RESULT_OK && data != null) {
             ScreenCaptureController.instance.onUserGrantedProjection()
-            ScreenCaptureService.start(this, result.resultCode, data)
+            ScreenCaptureService.start(applicationContext, result.resultCode, data)
         }
+    }
+
+    private val notifyPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        requestCaptureAfterNotify()
     }
 
     private val audioPermission = registerForActivityResult(
@@ -188,6 +194,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestCapture() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notifyPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        requestCaptureAfterNotify()
+    }
+
+    private fun requestCaptureAfterNotify() {
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {

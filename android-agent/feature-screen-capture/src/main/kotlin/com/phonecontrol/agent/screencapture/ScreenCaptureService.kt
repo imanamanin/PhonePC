@@ -54,44 +54,64 @@ class ScreenCaptureService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            try {
+                startForegroundNotification()
+            } catch (_: Exception) {
+                // Stop path may already be in the foreground.
+            }
             stopCapture()
             stopSelf()
             return START_NOT_STICKY
         }
 
-        val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
-        val data = if (Build.VERSION.SDK_INT >= 33) {
-            intent?.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent?.getParcelableExtra(EXTRA_RESULT_DATA)
-        }
-        if (resultCode != Activity.RESULT_OK || data == null) {
+        try {
+            startForegroundNotification()
+        } catch (_: Exception) {
             stopSelf()
             return START_NOT_STICKY
         }
 
-        startForegroundNotification()
-        val mgr = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        projection = mgr.getMediaProjection(resultCode, data)
-        if (projection == null) {
+        val resultCode = pendingResultCode
+        val data = pendingResultData
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            if (projection != null) {
+                return START_STICKY
+            }
             stopSelf()
             return START_NOT_STICKY
         }
-        projection?.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() {
-                stopCapture()
+        pendingResultCode = 0
+        pendingResultData = null
+
+        try {
+            releaseSession(stopProjection = true)
+            val mgr = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            val next = mgr.getMediaProjection(resultCode, data)
+            if (next == null) {
                 stopSelf()
+                return START_NOT_STICKY
             }
-        }, null)
-        ScreenCaptureController.instance.onUserGrantedProjection()
-        val metrics = resources.displayMetrics
-        val srcW = metrics.widthPixels.coerceAtLeast(2)
-        val srcH = metrics.heightPixels.coerceAtLeast(2)
-        val width = (CaptureSettings.maxWidth and 1.inv()).coerceAtLeast(2)
-        val height = ((width.toLong() * srcH / srcW).toInt() and 1.inv()).coerceAtLeast(2)
-        startReader(width, height)
-        return START_STICKY
+            val callback = object : MediaProjection.Callback() {
+                override fun onStop() {
+                    stopCapture()
+                    stopSelf()
+                }
+            }
+            next.registerCallback(callback, Handler(mainLooper))
+            projection = next
+            ScreenCaptureController.instance.onUserGrantedProjection()
+            val metrics = resources.displayMetrics
+            val srcW = metrics.widthPixels.coerceAtLeast(2)
+            val srcH = metrics.heightPixels.coerceAtLeast(2)
+            val width = alignEven((CaptureSettings.maxWidth and 1.inv()).coerceAtLeast(16))
+            val height = alignEven(((width.toLong() * srcH / srcW).toInt()).coerceAtLeast(16))
+            startReader(width, height)
+            return START_STICKY
+        } catch (_: Exception) {
+            stopCapture()
+            stopSelf()
+            return START_NOT_STICKY
+        }
     }
 
     private fun startReader(width: Int, height: Int) {
@@ -100,7 +120,7 @@ class ScreenCaptureService : Service() {
         val thread = HandlerThread("jpeg-17891")
         thread.start()
         imageThread = thread
-        val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
+        val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         imageReader = reader
         reader.setOnImageAvailableListener({ pending ->
             val image = try {
@@ -114,16 +134,29 @@ class ScreenCaptureService : Service() {
             "phone-control",
             width,
             height,
-            resources.displayMetrics.densityDpi,
+            resources.displayMetrics.densityDpi.coerceIn(160, 480),
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
             reader.surface,
             null,
-            null
-        )
+            Handler(thread.looper)
+        ) ?: throw IllegalStateException("virtual-display")
         running.set(true)
         thread(name = "media-hub", isDaemon = true) { pumpHub() }
         serverThread = thread(name = "video-17891", isDaemon = true) { serve() }
-        projection?.let { audio.start(this, it) }
+        val granted = projection
+        thread(name = "pcm-delay", isDaemon = true) {
+            try {
+                Thread.sleep(800)
+            } catch (_: InterruptedException) {
+                return@thread
+            }
+            if (!running.get()) return@thread
+            try {
+                granted?.let { audio.start(this, it) }
+            } catch (_: Exception) {
+                // JPEG still streams if the digital mix is unavailable.
+            }
+        }
     }
 
     private fun encodeLatest(image: Image) {
@@ -133,7 +166,11 @@ class ScreenCaptureService : Service() {
             return
         }
         lastJpegMs = now
-        val jpeg = toJpeg(image) ?: return
+        val jpeg = try {
+            toJpeg(image)
+        } catch (_: Exception) {
+            null
+        } ?: return
         latestJpeg.set(jpeg)
         jpegSeq.incrementAndGet()
     }
@@ -143,22 +180,41 @@ class ScreenCaptureService : Service() {
         val buffer = plane.buffer
         val pixelStride = plane.pixelStride.coerceAtLeast(1)
         val rowStride = plane.rowStride
-        val rowPadding = (rowStride - pixelStride * image.width).coerceAtLeast(0)
-        val bitmapWidth = image.width + rowPadding / pixelStride
-        val bitmap = Bitmap.createBitmap(bitmapWidth, image.height, Bitmap.Config.ARGB_8888)
+        val width = image.width
+        val height = image.height
+        if (width <= 0 || height <= 0) return null
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         buffer.rewind()
-        bitmap.copyPixelsFromBuffer(buffer)
-        val framed = if (bitmap.width == image.width) {
-            bitmap
+        if (pixelStride == 4 && rowStride == width * 4) {
+            bitmap.copyPixelsFromBuffer(buffer)
         } else {
-            Bitmap.createBitmap(bitmap, 0, 0, image.width, image.height)
+            val packed = java.nio.ByteBuffer.allocate(width * height * 4)
+            val row = ByteArray(rowStride)
+            for (y in 0 until height) {
+                buffer.position(y * rowStride)
+                val toRead = minOf(rowStride, buffer.remaining())
+                if (toRead <= 0) break
+                buffer.get(row, 0, toRead)
+                if (pixelStride == 4) {
+                    packed.put(row, 0, width * 4)
+                } else {
+                    var x = 0
+                    while (x < width) {
+                        val i = x * pixelStride
+                        packed.put(if (i < row.size) row[i] else 0)
+                        packed.put(if (i + 1 < row.size) row[i + 1] else 0)
+                        packed.put(if (i + 2 < row.size) row[i + 2] else 0)
+                        packed.put(if (i + 3 < row.size) row[i + 3] else 0xFF.toByte())
+                        x++
+                    }
+                }
+            }
+            packed.rewind()
+            bitmap.copyPixelsFromBuffer(packed)
         }
         val out = ByteArrayOutputStream()
-        val ok = framed.compress(Bitmap.CompressFormat.JPEG, 70, out)
-        if (framed !== bitmap) {
-            bitmap.recycle()
-        }
-        framed.recycle()
+        val ok = bitmap.compress(Bitmap.CompressFormat.JPEG, 70, out)
+        bitmap.recycle()
         val bytes = out.toByteArray()
         return if (ok && bytes.isNotEmpty() && bytes.size <= ProtocolPorts.MAX_VIDEO_BYTES) bytes else null
     }
@@ -279,18 +335,32 @@ class ScreenCaptureService : Service() {
             )
         }
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Phone Control Agent")
-            .setContentText("Screen capture is active. Stop from the app or this notification.")
+            .setContentTitle("PcPhone")
+            .setContentText("Screen capture is active.")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
+            .setOngoing(true)
             .build()
-        if (Build.VERSION.SDK_INT >= 29) {
-            startForeground(42, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
-        } else {
-            startForeground(42, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                startForeground(42, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+            } else {
+                startForeground(42, notification)
+            }
+        } catch (_: Exception) {
+            if (Build.VERSION.SDK_INT < 29) {
+                startForeground(42, notification)
+            } else {
+                throw IllegalStateException("media-projection-fgs")
+            }
         }
     }
 
     private fun stopCapture() {
+        releaseSession(stopProjection = true)
+        ScreenCaptureController.instance.stop()
+    }
+
+    private fun releaseSession(stopProjection: Boolean) {
         running.set(false)
         audio.stop()
         try {
@@ -307,14 +377,17 @@ class ScreenCaptureService : Service() {
         imageThread = null
         latestJpeg.set(null)
         StreamHub.clear()
-        try {
-            projection?.stop()
-        } catch (_: Exception) {
-            // Already stopped.
+        if (stopProjection) {
+            try {
+                projection?.stop()
+            } catch (_: Exception) {
+                // Already stopped.
+            }
+            projection = null
         }
-        projection = null
-        ScreenCaptureController.instance.stop()
     }
+
+    private fun alignEven(value: Int): Int = (value and 1.inv()).coerceAtLeast(16)
 
     override fun onDestroy() {
         stopCapture()
@@ -322,14 +395,17 @@ class ScreenCaptureService : Service() {
     }
 
     companion object {
-        const val EXTRA_RESULT_CODE = "resultCode"
-        const val EXTRA_RESULT_DATA = "resultData"
         const val ACTION_STOP = "com.phonecontrol.agent.STOP_CAPTURE"
 
+        @Volatile
+        private var pendingResultCode: Int = 0
+        @Volatile
+        private var pendingResultData: Intent? = null
+
         fun start(context: Context, resultCode: Int, data: Intent) {
+            pendingResultCode = resultCode
+            pendingResultData = data
             val intent = Intent(context, ScreenCaptureService::class.java)
-                .putExtra(EXTRA_RESULT_CODE, resultCode)
-                .putExtra(EXTRA_RESULT_DATA, data)
             if (Build.VERSION.SDK_INT >= 26) {
                 context.startForegroundService(intent)
             } else {
